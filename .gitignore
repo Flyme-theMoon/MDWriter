@@ -1,1 +1,7 @@
 Claude Copy.zip
+PLAN.md
+node_modules/
+out/
+dist/
+.DS_Store
+*.log
