@@ -1,6 +1,6 @@
 {
   "name": "mdwriter",
-  "version": "1.0.0",
+  "version": "1.0.0.1",
   "description": "Markdown editor and preview tool",
   "main": "./out/main/index.js",
   "private": true,
