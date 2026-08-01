@@ -46,6 +46,11 @@ declare global {
       confirmClose: () => void
       cancelClose: () => void
       exportPdf: (payload: ExportPdfPayload) => Promise<{ canceled: boolean; path?: string }>
+      minimizeWindow: () => void
+      maximizeWindow: () => void
+      closeWindow: () => void
+      onMaximizeChanged: (callback: (maximized: boolean) => void) => void
+      offMaximizeChanged: (callback: (maximized: boolean) => void) => void
     }
   }
 }

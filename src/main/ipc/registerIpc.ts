@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron'
 import { basename } from 'node:path'
 import type { AppState } from '../../shared/types/state'
 import type {
@@ -40,6 +40,12 @@ export function installCloseGuard(window: BrowserWindow): void {
     if (closeAllowed) return
     event.preventDefault()
     promptClose()
+  })
+  window.on('maximize', () => {
+    window.webContents.send('window:maximize-changed', true)
+  })
+  window.on('unmaximize', () => {
+    window.webContents.send('window:maximize-changed', false)
   })
 }
 
@@ -154,6 +160,20 @@ export function registerIpcHandlers(): void {
 
   ipcMain.on('app:close-canceled', () => {
     closePromptActive = false
+  })
+
+  ipcMain.on('window:minimize', () => {
+    BrowserWindow.getAllWindows()[0]?.minimize()
+  })
+
+  ipcMain.on('window:maximize', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) return
+    win.isMaximized() ? win.unmaximize() : win.maximize()
+  })
+
+  ipcMain.on('window:close', () => {
+    BrowserWindow.getAllWindows()[0]?.close()
   })
 }
 

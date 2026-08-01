@@ -9,6 +9,7 @@ import {
 import {
   Code2,
   Columns2,
+  Copy,
   Eye,
   FileDown,
   FilePlus2,
@@ -16,8 +17,10 @@ import {
   FolderPlus,
   Keyboard,
   ListTree,
+  Minus,
   Moon,
   Save,
+  Square,
   Sun,
   X
 } from 'lucide-react'
@@ -117,6 +120,7 @@ export default function App() {
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(220)
   const [resizingSidebar, setResizingSidebar] = useState(false)
+  const [maximized, setMaximized] = useState(false)
   const beforeCloseRef = useRef<() => void>(() => undefined)
   const sourceEditorRef = useRef<SourceEditorHandle>(null)
   const previewEditorRef = useRef<PreviewEditorHandle>(null)
@@ -156,6 +160,13 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
   }, [dark])
+
+  useEffect(() => {
+    if (!window.mdwriter) return
+    const handler = (max: boolean) => setMaximized(max)
+    window.mdwriter.onMaximizeChanged(handler)
+    return () => window.mdwriter?.offMaximizeChanged(handler)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -857,96 +868,31 @@ export default function App() {
             <div className="brand-sub">local markdown</div>
           </div>
         </div>
-        <div
-          className="tab-strip"
-          role="tablist"
-          aria-label="打开的文档"
-          onWheel={(event) => {
-            const delta =
-              Math.abs(event.deltaX) > Math.abs(event.deltaY)
-                ? event.deltaX
-                : event.deltaY
-            event.currentTarget.scrollLeft += delta
-          }}
-        >
-          {tabs.map((tab) => (
-            <div
-              className={`tab${tab.id === activeTab?.id ? ' active' : ''}`}
-              key={tab.id}
-              role="tab"
-              aria-selected={tab.id === activeTab?.id}
-              onClick={() => setActiveTabId(tab.id)}
-            >
-              <span>{tab.title}</span>
-              {tab.dirty && <span className="tab-dirty-dot" aria-label="未保存" />}
-              <button
-                className="tab-close"
-                type="button"
-                aria-label={`关闭 ${tab.title}`}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  requestCloseTab(tab.id)
-                }}
-              >
-                <X size={13} />
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="top-actions">
+        <span className="topbar-spacer" />
+        <div className="window-controls">
           <button
-            className="icon-button"
+            className="window-control-button"
             type="button"
-            data-tooltip="保存"
-            aria-label="保存"
-            onClick={saveActiveTab}
+            aria-label="最小化"
+            onClick={() => window.mdwriter?.minimizeWindow()}
           >
-            <Save size={16} />
+            <Minus size={14} />
           </button>
           <button
-            className="icon-button"
+            className="window-control-button"
             type="button"
-            data-tooltip="新建标签页"
-            aria-label="新建标签页"
-            onClick={addTab}
+            aria-label={maximized ? '还原' : '最大化'}
+            onClick={() => window.mdwriter?.maximizeWindow()}
           >
-            <FilePlus2 size={16} />
+            {maximized ? <Copy size={13} /> : <Square size={12} />}
           </button>
           <button
-            className="icon-button"
+            className="window-control-button close"
             type="button"
-            data-tooltip="添加文件夹"
-            aria-label="添加文件夹"
-            onClick={openDirectory}
+            aria-label="关闭"
+            onClick={() => window.mdwriter?.closeWindow()}
           >
-            <FolderOpen size={16} />
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            data-tooltip="导出 PDF"
-            aria-label="导出 PDF"
-            onClick={exportPdf}
-          >
-            <FileDown size={16} />
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            data-tooltip="快捷键"
-            aria-label="快捷键"
-            onClick={() => setShowShortcuts(true)}
-          >
-            <Keyboard size={16} />
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            data-tooltip="切换主题"
-            aria-label="切换主题"
-            onClick={() => setDark((value) => !value)}
-          >
-            {dark ? <Sun size={16} /> : <Moon size={16} />}
+            <X size={14} />
           </button>
         </div>
       </header>
@@ -1102,6 +1048,98 @@ export default function App() {
             >
               <Eye size={15} />
               <span>预览编辑</span>
+            </button>
+          </div>
+          <div
+            className="tab-strip"
+            role="tablist"
+            aria-label="打开的文档"
+            onWheel={(event) => {
+              const delta =
+                Math.abs(event.deltaX) > Math.abs(event.deltaY)
+                  ? event.deltaX
+                  : event.deltaY
+              event.currentTarget.scrollLeft += delta
+            }}
+          >
+            {tabs.map((tab) => (
+              <div
+                className={`tab${tab.id === activeTab?.id ? ' active' : ''}`}
+                key={tab.id}
+                role="tab"
+                aria-selected={tab.id === activeTab?.id}
+                onClick={() => setActiveTabId(tab.id)}
+              >
+                <span>{tab.title}</span>
+                {tab.dirty && <span className="tab-dirty-dot" aria-label="未保存" />}
+                <button
+                  className="tab-close"
+                  type="button"
+                  aria-label={`关闭 ${tab.title}`}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    requestCloseTab(tab.id)
+                  }}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="top-actions">
+            <button
+              className="icon-button"
+              type="button"
+              data-tooltip="保存"
+              aria-label="保存"
+              onClick={saveActiveTab}
+            >
+              <Save size={16} />
+            </button>
+            <button
+              className="icon-button"
+              type="button"
+              data-tooltip="新建标签页"
+              aria-label="新建标签页"
+              onClick={addTab}
+            >
+              <FilePlus2 size={16} />
+            </button>
+            <button
+              className="icon-button"
+              type="button"
+              data-tooltip="添加文件夹"
+              aria-label="添加文件夹"
+              onClick={openDirectory}
+            >
+              <FolderOpen size={16} />
+            </button>
+            <button
+              className="icon-button"
+              type="button"
+              data-tooltip="导出 PDF"
+              aria-label="导出 PDF"
+              onClick={exportPdf}
+            >
+              <FileDown size={16} />
+            </button>
+            <button
+              className="icon-button"
+              type="button"
+              data-tooltip="快捷键"
+              aria-label="快捷键"
+              onClick={() => setShowShortcuts(true)}
+            >
+              <Keyboard size={16} />
+            </button>
+            <button
+              className="icon-button"
+              type="button"
+              data-tooltip="切换主题"
+              aria-label="切换主题"
+              onClick={() => setDark((value) => !value)}
+            >
+              {dark ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
         </div>

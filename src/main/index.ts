@@ -9,8 +9,8 @@ function createWindow(): void {
     minWidth: 960,
     minHeight: 640,
     title: 'MDWriter',
-    backgroundColor: '#faf9f5',
     show: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -29,6 +29,10 @@ function createWindow(): void {
   })
 
   installCloseGuard(mainWindow)
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.send('window:maximize-changed', mainWindow.isMaximized())
+  })
 
   const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (devUrl) {

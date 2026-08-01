@@ -39,13 +39,48 @@ button {
 
 .topbar {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: var(--sidebar-width, 220px) minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: var(--spacing);
+  gap: calc(var(--spacing) * 3);
   padding: 0 calc(var(--spacing) * 3);
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--background) 88%, transparent);
+  background: var(--background);
+  -webkit-app-region: drag;
+}
+
+.topbar-spacer {
+  flex: 1;
+  -webkit-app-region: drag;
+}
+
+.window-controls {
+  display: flex;
+  align-items: stretch;
+  height: 54px;
+  -webkit-app-region: no-drag;
+}
+
+.window-control-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 54px;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.window-control-button:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.window-control-button.close:hover {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
 }
 
 .brand {
@@ -85,21 +120,11 @@ button {
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-width: none;
 }
 
 .tab-strip::-webkit-scrollbar {
-  height: 6px;
-}
-
-.tab-strip::-webkit-scrollbar-thumb {
-  border-radius: var(--radius-full);
-  background: var(--border);
-}
-
-.tab-strip::-webkit-scrollbar-track {
-  background: transparent;
+  display: none;
 }
 
 .tab {
@@ -108,13 +133,14 @@ button {
   gap: 8px;
   max-width: 180px;
   padding: 7px 8px 7px 12px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--muted-foreground);
   font-family: var(--font-sans);
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
+  background: var(--card);
 }
 
 .tab span {
@@ -128,10 +154,10 @@ button {
 }
 
 .tab.active {
-  background: var(--popover);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--brand-100) 40%, var(--popover));
+  border-color: var(--brand-500);
   color: var(--foreground);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-500) 14%, transparent);
 }
 
 .tab-dirty-dot {
@@ -177,11 +203,11 @@ button {
   width: 34px;
   height: 34px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--popover);
+  background: transparent;
   color: var(--foreground);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 .icon-button:hover:not(:disabled) {
@@ -576,9 +602,19 @@ button.file-item.active {
   display: flex;
   align-items: center;
   min-height: 48px;
-  padding: 0 calc(var(--spacing) * 4);
+  padding: 0 calc(var(--spacing) * 3);
   border-bottom: 1px solid var(--border);
-  background: var(--popover);
+  background: var(--background);
+  gap: calc(var(--spacing) * 3);
+}
+
+.toolbar .tab-strip {
+  flex: 1;
+  min-width: 0;
+}
+
+.toolbar .top-actions {
+  flex-shrink: 0;
 }
 
 .mode-switch {
@@ -707,6 +743,25 @@ button.file-item.active {
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.editor-pane::-webkit-scrollbar,
+.preview-pane::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.editor-pane::-webkit-scrollbar-thumb,
+.preview-pane::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-full);
+  background: var(--border);
+}
+
+.editor-pane::-webkit-scrollbar-track,
+.preview-pane::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .editor-pane {
@@ -739,6 +794,25 @@ button.file-item.active {
 
 .source-editor .cm-focused {
   outline: none;
+}
+
+.source-editor .cm-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.source-editor .cm-scroller::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.source-editor .cm-scroller::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-full);
+  background: var(--border);
+}
+
+.source-editor .cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .markdown-preview,
@@ -1173,6 +1247,25 @@ html.dark .milkdown-host {
   height: 100%;
   min-height: 0;
   overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.preview-editor-wrap::-webkit-scrollbar,
+.milkdown-host::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.preview-editor-wrap::-webkit-scrollbar-thumb,
+.milkdown-host::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-full);
+  background: var(--border);
+}
+
+.preview-editor-wrap::-webkit-scrollbar-track,
+.milkdown-host::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .mermaid-preview,

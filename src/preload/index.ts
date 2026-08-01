@@ -63,7 +63,22 @@ const api = {
     ipcRenderer.send('app:close-canceled')
   },
   exportPdf: (payload: ExportPdfPayload): Promise<{ canceled: boolean; path?: string }> =>
-    ipcRenderer.invoke('export:pdf', payload)
+    ipcRenderer.invoke('export:pdf', payload),
+  minimizeWindow: (): void => {
+    ipcRenderer.send('window:minimize')
+  },
+  maximizeWindow: (): void => {
+    ipcRenderer.send('window:maximize')
+  },
+  closeWindow: (): void => {
+    ipcRenderer.send('window:close')
+  },
+  onMaximizeChanged: (callback: (maximized: boolean) => void): void => {
+    ipcRenderer.on('window:maximize-changed', (_event, maximized) => callback(maximized))
+  },
+  offMaximizeChanged: (callback: (maximized: boolean) => void): void => {
+    ipcRenderer.removeListener('window:maximize-changed', callback as any)
+  }
 }
 
 contextBridge.exposeInMainWorld('mdwriter', api)
