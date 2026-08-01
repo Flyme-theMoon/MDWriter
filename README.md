@@ -55,8 +55,8 @@ npm run build
 ```powershell
 npm install
 npm run typecheck
-npm run build
-npx electron-builder --win portable
+npx electron-vite build
+npx electron-builder --win portable --publish never
 ```
 
 打包完成后，可执行文件位于：
@@ -66,6 +66,38 @@ dist/MDWriter-1.0.0.0-portable.exe
 ```
 
 这个 EXE 无需安装，复制到其他 Windows 10+ 电脑后双击即可运行。
+
+### 打包注意事项
+
+**必须先构建再打包**：`electron-vite build` 把 `src/` 编译到 `out/`，`electron-builder` 只负责把 `out/` 打进 EXE。如果跳过构建步骤，打包产物会是旧代码。
+
+**Electron 下载慢**：首次打包时 `electron-builder` 需要下载 Electron 二进制文件（约 90MB），国内网络可能很慢。设置镜像源：
+
+```powershell
+$env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
+npx electron-builder --win portable --publish never
+```
+
+如需永久生效：
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("ELECTRON_MIRROR", "https://npmmirror.com/mirrors/electron/", "User")
+```
+
+**`npm warn deprecated` 警告**：`npm install electron-builder` 时出现的 deprecated 警告是上游依赖的弃用提示，不影响功能，可以忽略。
+
+**`@sindresorhus/is` 缺失报错**：如果打包时出现 `Cannot find module '@sindresorhus/is'`，执行以下命令修复：
+
+```powershell
+npm install @sindresorhus/is@4.6.0 --save-dev
+```
+
+**开发环境下 Electron 二进制丢失**：打包流程可能会清理 `node_modules/electron/dist`，导致 `npm run dev` 报 `Electron uninstall`。修复：
+
+```powershell
+$env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
+node node_modules/electron/install.js
+```
 
 ## macOS 打包
 
@@ -95,6 +127,6 @@ resources     Claude 风格设计系统资源
 
 ## 注意事项
 
-- 首次执行 electron-builder 时会下载 Electron 打包依赖，需要保持网络可用。
+- 应用状态存储在 `C:\Users\<用户名>\AppData\Roaming\MDWriter\ui-state.json`，删除该文件可重置为初始状态（用于测试首次打开体验）。
 - `node_modules/`、`out/`、`dist/` 已加入 `.gitignore`，不会进入版本控制。
 - `PLAN.md` 属于本地计划文档，不纳入版本控制。

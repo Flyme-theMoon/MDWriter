@@ -58,15 +58,8 @@ button {
 .brand-mark {
   width: 30px;
   height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 700;
+  flex-shrink: 0;
+  object-fit: cover;
 }
 
 .brand-name {
@@ -632,6 +625,75 @@ button.file-item.active {
 
 .editor-area {
   flex: 1;
+}
+
+.empty-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--background);
+}
+
+.empty-welcome-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-welcome-brand {
+  margin-bottom: 8px;
+}
+
+.empty-welcome-icon {
+  width: 72px;
+  height: 72px;
+}
+
+.empty-welcome-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.empty-welcome-sub {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.04em;
+}
+
+.empty-welcome-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.empty-welcome-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--popover);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+
+.empty-welcome-button:hover {
+  border-color: var(--ring);
 }
 
 .split-view {

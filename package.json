@@ -8,7 +8,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "package": "electron-vite build && electron-builder --win portable"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.1",
@@ -35,12 +36,15 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@sindresorhus/is": "^4.6.0",
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "sharp": "^0.35.3",
     "typescript": "^7.0.2",
     "vite": "^7.3.6"
   }

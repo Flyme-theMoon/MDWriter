@@ -1,0 +1,199 @@
+{
+  "data": [
+    {
+      "id": "page-preview",
+      "title": "图标预览",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1754084880000,
+      "canvasData": {
+        "x": 0,
+        "y": -168,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 2197,
+          "viewportWidth": 799,
+          "sourceHash": "fnv1a-1117106d",
+          "measuredAt": 1785600656548
+        },
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 799,
+          "height": 1707
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/preview.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "image-001",
+      "title": "mdwriter 应用图标 (SVG 矢量)",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1754084880000,
+      "canvasData": {
+        "x": 252,
+        "y": 336,
+        "naturalSize": {
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/app-icon.svg"
+      }
+    },
+    {
+      "id": "image-002",
+      "title": "应用图标 1024px (PNG)",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1754085600000,
+      "canvasData": {
+        "x": 660,
+        "y": -612,
+        "naturalSize": {
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/icon-1024.png"
+      }
+    },
+    {
+      "id": "image-003",
+      "title": "应用图标 512px (PNG)",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1754085600000,
+      "canvasData": {
+        "x": -516,
+        "y": 696,
+        "naturalSize": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/icon-512.png"
+      }
+    },
+    {
+      "id": "image-004",
+      "title": "应用图标 256px (PNG)",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1754085600000,
+      "canvasData": {
+        "x": 840,
+        "y": 1092,
+        "naturalSize": {
+          "width": 256,
+          "height": 256
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/icon-256.png"
+      }
+    },
+    {
+      "id": "image-005",
+      "title": "应用图标 128px (PNG)",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1754085600000,
+      "canvasData": {
+        "x": 1608,
+        "y": 588,
+        "naturalSize": {
+          "width": 128,
+          "height": 128
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/icon-128.png"
+      }
+    },
+    {
+      "id": "image-006",
+      "title": "应用图标 64px (PNG)",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1754085600000,
+      "canvasData": {
+        "x": 588,
+        "y": 60,
+        "naturalSize": {
+          "width": 64,
+          "height": 64
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/icon-64.png"
+      }
+    },
+    {
+      "id": "image-007",
+      "title": "应用图标 48px (PNG)",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1754085600000,
+      "canvasData": {
+        "x": 1200,
+        "y": -648,
+        "naturalSize": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/icon-48.png"
+      }
+    },
+    {
+      "id": "image-008",
+      "title": "应用图标 32px (PNG)",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1754085600000,
+      "canvasData": {
+        "x": 936,
+        "y": -432,
+        "naturalSize": {
+          "width": 32,
+          "height": 32
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/icon-32.png"
+      }
+    },
+    {
+      "id": "image-009",
+      "title": "应用图标 16px (PNG)",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1754085600000,
+      "canvasData": {
+        "x": 1320,
+        "y": -1224,
+        "naturalSize": {
+          "width": 16,
+          "height": 16
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/icon-16.png"
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": false,
+    "deviceType": "freeSize",
+    "projectName": "mdwriter 应用图标"
+  }
+}

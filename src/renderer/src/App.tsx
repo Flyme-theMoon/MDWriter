@@ -55,6 +55,7 @@ import { OutlineTree } from './components/sidebar/OutlineTree'
 import { ShortcutDialog } from './components/ShortcutDialog'
 import { UnsavedDialog } from './components/UnsavedDialog'
 import { buildExportHtml } from './markdown/renderer'
+import appIcon from './icon.png'
 
 interface EditorTab {
   id: string
@@ -93,45 +94,11 @@ function parentDirectory(filePath: string): string {
   return filePath.slice(0, separator) || '/'
 }
 
-const starterMarkdown = `# MDWriter 技术验证
-
-这是一个用于验证 Electron、React、TypeScript 与 Claude 风格界面的最小示例。
-
-## 核心验证点
-
-- 源码编辑
-- 分栏预览
-- 预览模式下直接编辑
-- 统一快捷键命令层
-
-> 当前阶段优先确认界面风格和编辑器技术链路，导出能力延后。
-
-\`\`\`ts
-const mode: EditorMode = 'preview'
-console.log(mode)
-\`\`\`
-`
-
-const initialTabs: EditorTab[] = [
-  {
-    id: 'welcome',
-    title: 'Welcome.md',
-    content: starterMarkdown,
-    path: null,
-    dirty: false
-  },
-  {
-    id: 'notes',
-    title: 'Notes.md',
-    content: '# Notes\n\n这里是第二个标签页的示例内容。',
-    path: null,
-    dirty: false
-  }
-]
+const initialTabs: EditorTab[] = []
 
 export default function App() {
   const [tabs, setTabs] = useState<EditorTab[]>(initialTabs)
-  const [activeTabId, setActiveTabId] = useState('welcome')
+  const [activeTabId, setActiveTabId] = useState(initialTabs[0]?.id ?? '')
   const [mode, setMode] = useState<EditorMode>('split')
   const [sidebarMode, setSidebarMode] = useState<'files' | 'outline'>('files')
   const [dark, setDark] = useState(false)
@@ -157,10 +124,10 @@ export default function App() {
   const nextId = useRef(3)
   const stateSaveTimerRef = useRef<number | null>(null)
 
-  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0]
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null
   const outlineHeadings = useMemo(
-    () => extractOutline(activeTab.content),
-    [activeTab.content]
+    () => extractOutline(activeTab?.content ?? ''),
+    [activeTab?.content]
   )
   const outlineTree = useMemo(
     () => buildOutlineTree(outlineHeadings),
@@ -169,7 +136,7 @@ export default function App() {
 
   const buildAppState = (
     tabList: EditorTab[] = tabs,
-    activeId = activeTab.id
+    activeId = activeTab?.id ?? ''
   ): AppState => ({
     version: 1,
     workspaces: workspaces.map((workspace) => workspace.path),
@@ -305,7 +272,7 @@ export default function App() {
   }, [
     hydrated,
     tabs,
-    activeTab.id,
+    activeTab?.id,
     workspaces,
     mode,
     dark,
@@ -329,9 +296,10 @@ export default function App() {
   }, [contextMenu])
 
   const updateActiveContent = (content: string): void => {
+    if (!activeTab) return
     setTabs((current) =>
       current.map((tab) =>
-        tab.id === activeTab.id
+        tab.id === activeTab?.id
           ? {
               ...tab,
               content,
@@ -357,12 +325,12 @@ export default function App() {
   }
 
   const closeTab = (id: string): void => {
-    if (tabs.length === 1) return
     const index = tabs.findIndex((tab) => tab.id === id)
     const nextTabs = tabs.filter((tab) => tab.id !== id)
     setTabs(nextTabs)
     if (activeTabId === id) {
-      setActiveTabId(nextTabs[Math.max(0, index - 1)].id)
+      const nextId = nextTabs[Math.max(0, index - 1)]?.id ?? ''
+      setActiveTabId(nextId)
     }
   }
 
@@ -377,7 +345,8 @@ export default function App() {
   }
 
   const stats = useMemo(() => {
-    const withoutImages = activeTab.content.replace(
+    const content = activeTab?.content ?? ''
+    const withoutImages = content.replace(
       /!\[[^\]]*\]\((?:data:image\/[^)]+|[^)]+)\)/g,
       ''
     )
@@ -386,7 +355,7 @@ export default function App() {
       words,
       chars: withoutImages.length
     }
-  }, [activeTab.content])
+  }, [activeTab?.content])
 
   const modeLabel = {
     source: '源码',
@@ -692,23 +661,14 @@ export default function App() {
     await refreshWorkspaces()
 
     if (remaining.length === 0) {
-      const id = String(nextId.current)
-      nextId.current += 1
-      const blankTab: EditorTab = {
-        id,
-        title: `Untitled-${id}.md`,
-        content: '# Untitled\n\n开始写作。',
-        path: null,
-        dirty: false
-      }
-      setTabs([blankTab])
-      setActiveTabId(id)
+      setTabs([])
+      setActiveTabId('')
       return
     }
 
     setTabs(remaining)
-    if (activeTab.path === target.path) {
-      const index = tabs.findIndex((tab) => tab.id === activeTab.id)
+    if (activeTab?.path === target.path) {
+      const index = tabs.findIndex((tab) => tab.id === activeTab?.id)
       setActiveTabId(
         remaining[Math.max(0, index - 1)]?.id ?? remaining[0].id
       )
@@ -750,6 +710,7 @@ export default function App() {
   }
 
   const saveActiveTab = async (): Promise<void> => {
+    if (!activeTab) return
     await saveTab(activeTab.id)
   }
 
@@ -816,7 +777,7 @@ export default function App() {
       stateSaveTimerRef.current = null
     }
     await window.mdwriter.saveAppState(
-      buildAppState(finalTabs, activeTab.id)
+      buildAppState(finalTabs, activeTab?.id)
     )
     setPendingAppClose(false)
     window.mdwriter.confirmClose()
@@ -828,8 +789,8 @@ export default function App() {
     const finalTabs = tabs
       .filter((tab) => tab.path !== null)
       .map((tab) => ({ ...tab, dirty: false }))
-    const finalActiveId = finalTabs.some((tab) => tab.id === activeTab.id)
-      ? activeTab.id
+    const finalActiveId = finalTabs.some((tab) => tab.id === activeTab?.id)
+      ? activeTab?.id ?? ''
       : finalTabs[0]?.id ?? ''
     if (stateSaveTimerRef.current !== null) {
       window.clearTimeout(stateSaveTimerRef.current)
@@ -863,7 +824,7 @@ export default function App() {
   }
 
   const exportPdf = async (): Promise<void> => {
-    if (!window.mdwriter) return
+    if (!window.mdwriter || !activeTab) return
 
     const defaultName = activeTab.title.replace(/\.md$/i, '') + '.pdf'
     await window.mdwriter.exportPdf({
@@ -890,7 +851,7 @@ export default function App() {
     >
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark">M</span>
+          <img className="brand-mark" src={appIcon} alt="MDWriter" />
           <div>
             <div className="brand-name">MDWriter</div>
             <div className="brand-sub">local markdown</div>
@@ -910,10 +871,10 @@ export default function App() {
         >
           {tabs.map((tab) => (
             <div
-              className={`tab${tab.id === activeTab.id ? ' active' : ''}`}
+              className={`tab${tab.id === activeTab?.id ? ' active' : ''}`}
               key={tab.id}
               role="tab"
-              aria-selected={tab.id === activeTab.id}
+              aria-selected={tab.id === activeTab?.id}
               onClick={() => setActiveTabId(tab.id)}
             >
               <span>{tab.title}</span>
@@ -1051,7 +1012,7 @@ export default function App() {
               {workspaces.length > 0 ? (
                 <FileTree
                   roots={workspaces}
-                  activePath={activeTab.path}
+                  activePath={activeTab?.path ?? null}
                   selectedFolderPath={selectedFolderPath}
                   pendingCreate={pendingCreate}
                   onOpenFile={openFileFromTree}
@@ -1067,7 +1028,7 @@ export default function App() {
                 <div className="file-list">
                   {tabs.map((tab) => (
                     <button
-                      className={`file-item${tab.id === activeTab.id ? ' active' : ''}`}
+                      className={`file-item${tab.id === activeTab?.id ? ' active' : ''}`}
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveTabId(tab.id)}
@@ -1146,45 +1107,77 @@ export default function App() {
         </div>
 
         <div className="editor-area">
-          {mode === 'source' && (
-            <SourceEditor
-              ref={sourceEditorRef}
-              key={`${activeTab.id}-source`}
-              value={activeTab.content}
-              onChange={updateActiveContent}
-            />
-          )}
-          {mode === 'split' && (
-            <div className="split-view">
-              <div className="editor-pane">
+          {!activeTab ? (
+            <div className="empty-welcome">
+              <div className="empty-welcome-content">
+                <div className="empty-welcome-brand">
+                  <img className="empty-welcome-icon" src={appIcon} alt="MDWriter" />
+                </div>
+                <h2 className="empty-welcome-title">MDWriter</h2>
+                <p className="empty-welcome-sub">local markdown</p>
+                <div className="empty-welcome-actions">
+                  <button
+                    className="empty-welcome-button"
+                    type="button"
+                    onClick={openDirectory}
+                  >
+                    <FolderOpen size={16} />
+                    <span>打开文件夹</span>
+                  </button>
+                  <button
+                    className="empty-welcome-button"
+                    type="button"
+                    onClick={createMarkdownFile}
+                  >
+                    <FilePlus2 size={16} />
+                    <span>新建文件</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {mode === 'source' && (
                 <SourceEditor
                   ref={sourceEditorRef}
-                  key={`${activeTab.id}-split-source`}
+                  key={`${activeTab.id}-source`}
                   value={activeTab.content}
                   onChange={updateActiveContent}
                 />
-              </div>
-              <div className="preview-pane">
-                <PreviewPane
-                  ref={splitPreviewRef}
-                  markdown={activeTab.content}
-                  dark={dark}
-                  onImagePreview={setLightboxSrc}
-                />
-              </div>
-            </div>
-          )}
-          {mode === 'preview' && (
-            <div className="preview-editor-wrap">
-              <PreviewEditor
-                ref={previewEditorRef}
-                key={`${activeTab.id}-preview`}
-                value={activeTab.content}
-                onChange={updateActiveContent}
-                onImagePreview={setLightboxSrc}
-                dark={dark}
-              />
-            </div>
+              )}
+              {mode === 'split' && (
+                <div className="split-view">
+                  <div className="editor-pane">
+                    <SourceEditor
+                      ref={sourceEditorRef}
+                      key={`${activeTab.id}-split-source`}
+                      value={activeTab.content}
+                      onChange={updateActiveContent}
+                    />
+                  </div>
+                  <div className="preview-pane">
+                    <PreviewPane
+                      ref={splitPreviewRef}
+                      markdown={activeTab.content}
+                      dark={dark}
+                      onImagePreview={setLightboxSrc}
+                    />
+                  </div>
+                </div>
+              )}
+              {mode === 'preview' && (
+                <div className="preview-editor-wrap">
+                  <PreviewEditor
+                    ref={previewEditorRef}
+                    key={`${activeTab.id}-preview`}
+                    value={activeTab.content}
+                    onChange={updateActiveContent}
+                    onImagePreview={setLightboxSrc}
+                    dark={dark}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

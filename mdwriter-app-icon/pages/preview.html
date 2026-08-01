@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mdwriter 应用图标预览</title>
+    <style id="theme-vars">
+/* mdwriter app icon preview - brand tokens from existing design system */
+:root {
+  /* Brand color: warm terracotta */
+  --brand-50: #fbf2ed;
+  --brand-100: #f4e0d5;
+  --brand-200: #ebc6b6;
+  --brand-300: #e0a892;
+  --brand-400: #d6866a;
+  --brand-500: #c96442;
+  --brand-600: #b0562f;
+  --brand-700: #934828;
+  --brand-800: #753a22;
+  --brand-900: #582e1d;
+  /* Text */
+  --text-50: #f6f5f0;
+  --text-100: #ece9de;
+  --text-200: #dad9d4;
+  --text-300: #c2c0b6;
+  --text-400: #9b988c;
+  --text-500: #6e6d68;
+  --text-600: #535146;
+  --text-700: #46443b;
+  --text-800: #3d3929;
+  --text-900: #28261b;
+  /* Background */
+  --bg-50: #ffffff;
+  --bg-100: #faf9f5;
+  --bg-200: #f5f4ef;
+  --bg-300: #ede9de;
+  --bg-400: #e3e0d4;
+  --bg-500: #dad9d4;
+  /* Semantic */
+  --background: var(--bg-100);
+  --foreground: var(--text-800);
+  --card: var(--bg-200);
+  --muted: var(--bg-300);
+  --muted-foreground: var(--text-500);
+  --border: var(--text-200);
+  --primary: var(--brand-500);
+  --radius: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  /* Fonts */
+  --font-display: Georgia, 'Times New Roman', ui-serif, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-foreground: var(--muted-foreground);
+  }
+  @layer base {
+    body { background: var(--muted-background); color: var(--muted-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main class="min-h-screen py-16 px-6 md:px-12 lg:px-20" style="background: var(--background);">
+      <!-- Header -->
+      <div class="max-w-5xl mx-auto mb-16 text-center">
+        <h1 class="text-4xl md:text-5xl font-semibold tracking-tight mb-4" style="font-family: var(--font-display); color: var(--foreground);">
+          mdwriter 应用图标
+        </h1>
+        <p class="text-lg max-w-2xl mx-auto" style="color: var(--muted-foreground); font-family: var(--font-sans);">
+          为 Markdown 写作编辑器设计的应用图标，延续项目温暖的陶土橙与纸质编辑气质
+        </p>
+      </div>
+
+      <!-- Hero icon showcase -->
+      <div class="max-w-5xl mx-auto mb-20">
+        <div class="rounded-3xl p-12 md:p-20 flex items-center justify-center" style="background: linear-gradient(135deg, var(--bg-200), var(--bg-300)); border: 1px solid var(--border);">
+          <img src="../assets/app-icon.svg" alt="mdwriter app icon" class="w-64 h-64 md:w-80 md:h-80 drop-shadow-2xl" style="filter: drop-shadow(0 25px 50px rgba(120, 58, 34, 0.25));">
+        </div>
+      </div>
+
+      <!-- Size variations -->
+      <div class="max-w-5xl mx-auto mb-20">
+        <h2 class="text-xl font-semibold mb-8" style="font-family: var(--font-sans); color: var(--foreground);">尺寸适配</h2>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-6">
+          <div class="flex flex-col items-center gap-4 p-6 rounded-2xl" style="background: var(--card); border: 1px solid var(--border);">
+            <img src="../assets/app-icon.svg" alt="" class="w-24 h-24" style="filter: drop-shadow(0 8px 16px rgba(120,58,34,0.2));">
+            <span class="text-sm font-mono" style="color: var(--muted-foreground);">512pt</span>
+          </div>
+          <div class="flex flex-col items-center gap-4 p-6 rounded-2xl" style="background: var(--card); border: 1px solid var(--border);">
+            <img src="../assets/app-icon.svg" alt="" class="w-16 h-16" style="filter: drop-shadow(0 6px 12px rgba(120,58,34,0.18));">
+            <span class="text-sm font-mono" style="color: var(--muted-foreground);">256pt</span>
+          </div>
+          <div class="flex flex-col items-center gap-4 p-6 rounded-2xl" style="background: var(--card); border: 1px solid var(--border);">
+            <img src="../assets/app-icon.svg" alt="" class="w-12 h-12" style="filter: drop-shadow(0 4px 8px rgba(120,58,34,0.15));">
+            <span class="text-sm font-mono" style="color: var(--muted-foreground);">128pt</span>
+          </div>
+          <div class="flex flex-col items-center gap-4 p-6 rounded-2xl" style="background: var(--card); border: 1px solid var(--border);">
+            <img src="../assets/app-icon.svg" alt="" class="w-8 h-8" style="filter: drop-shadow(0 2px 4px rgba(120,58,34,0.15));">
+            <span class="text-sm font-mono" style="color: var(--muted-foreground);">64pt</span>
+          </div>
+          <div class="flex flex-col items-center gap-4 p-6 rounded-2xl col-span-2 md:col-span-1" style="background: var(--card); border: 1px solid var(--border);">
+            <img src="../assets/app-icon.svg" alt="" class="w-6 h-6" style="filter: drop-shadow(0 1px 3px rgba(120,58,34,0.2));">
+            <span class="text-sm font-mono" style="color: var(--muted-foreground);">32pt</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Context mockups: Dock / Taskbar / Desktop -->
+      <div class="max-w-5xl mx-auto mb-20">
+        <h2 class="text-xl font-semibold mb-8" style="font-family: var(--font-sans); color: var(--foreground);">场景预览</h2>
+        <div class="grid md:grid-cols-2 gap-8">
+          <!-- macOS Dock mockup -->
+          <div class="rounded-2xl overflow-hidden" style="border: 1px solid var(--border);">
+            <div class="h-48 flex items-end justify-center pb-3" style="background: linear-gradient(180deg, #e8ddd0 0%, #d4c4b0 100%);">
+              <div class="flex items-end gap-2 px-3 py-2 rounded-2xl" style="background: rgba(255,255,255,0.35); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3);">
+                <div class="w-5 h-5 rounded-md" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);"></div>
+                <div class="w-8 h-8 rounded-xl" style="background: linear-gradient(135deg, #22c55e, #15803d);"></div>
+                <img src="../assets/app-icon.svg" alt="" class="w-12 h-12 rounded-[10px]" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25)); transform: translateY(-4px);">
+                <div class="w-8 h-8 rounded-xl" style="background: linear-gradient(135deg, #a855f7, #6b21a8);"></div>
+                <div class="w-5 h-5 rounded-md" style="background: linear-gradient(135deg, #f59e0b, #b45309);"></div>
+              </div>
+            </div>
+            <div class="p-4" style="background: var(--card);">
+              <p class="text-sm font-medium" style="color: var(--foreground);">macOS Dock</p>
+              <p class="text-xs mt-1" style="color: var(--muted-foreground);">停靠栏中保持辨识度</p>
+            </div>
+          </div>
+
+          <!-- Windows Taskbar mockup -->
+          <div class="rounded-2xl overflow-hidden" style="border: 1px solid var(--border);">
+            <div class="h-48 flex flex-col justify-end" style="background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);">
+              <div class="flex items-center justify-center gap-1 px-3 py-1.5" style="background: rgba(0,0,0,0.3); border-top: 1px solid rgba(255,255,255,0.06);">
+                <div class="w-9 h-9 flex items-center justify-center rounded" style="background: rgba(255,255,255,0.06);">
+                  <div class="w-4 h-4 rounded-sm" style="background: #fff; opacity: 0.8;"></div>
+                </div>
+                <div class="w-10 h-10 flex items-center justify-center rounded" style="background: rgba(255,255,255,0.08); border-bottom: 2px solid var(--brand-400);">
+                  <img src="../assets/app-icon.svg" alt="" class="w-6 h-6">
+                </div>
+                <div class="w-9 h-9 flex items-center justify-center rounded" style="background: rgba(255,255,255,0.06);">
+                  <div class="w-4 h-4 rounded-full" style="background: #3b82f6;"></div>
+                </div>
+                <div class="w-9 h-9 flex items-center justify-center rounded" style="background: rgba(255,255,255,0.06);">
+                  <div class="w-4 h-4" style="background: #22c55e; border-radius: 2px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="p-4" style="background: var(--card);">
+              <p class="text-sm font-medium" style="color: var(--foreground);">Windows 任务栏</p>
+              <p class="text-xs mt-1" style="color: var(--muted-foreground);">小尺寸下依然清晰</p>
+            </div>
+          </div>
+
+          <!-- Desktop context (light) -->
+          <div class="rounded-2xl overflow-hidden" style="border: 1px solid var(--border);">
+            <div class="h-48 p-8 flex items-start justify-start" style="background: var(--bg-300);">
+              <img src="../assets/app-icon.svg" alt="" class="w-16 h-16" style="filter: drop-shadow(0 6px 14px rgba(120,58,34,0.2));">
+            </div>
+            <div class="p-4" style="background: var(--card);">
+              <p class="text-sm font-medium" style="color: var(--foreground);">浅色桌面</p>
+              <p class="text-xs mt-1" style="color: var(--muted-foreground);">暖色调与纸质背景协调</p>
+            </div>
+          </div>
+
+          <!-- Desktop context (dark) -->
+          <div class="rounded-2xl overflow-hidden" style="border: 1px solid var(--border);">
+            <div class="h-48 p-8 flex items-start justify-start" style="background: linear-gradient(135deg, #262624 0%, #1b1b19 100%);">
+              <img src="../assets/app-icon.svg" alt="" class="w-16 h-16" style="filter: drop-shadow(0 6px 14px rgba(0,0,0,0.4));">
+            </div>
+            <div class="p-4" style="background: var(--card);">
+              <p class="text-sm font-medium" style="color: var(--foreground);">深色桌面</p>
+              <p class="text-xs mt-1" style="color: var(--muted-foreground);">陶土橙在暗色下同样突出</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Design tokens / color palette -->
+      <div class="max-w-5xl mx-auto mb-12">
+        <h2 class="text-xl font-semibold mb-8" style="font-family: var(--font-sans); color: var(--foreground);">设计色彩</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--border);">
+            <div class="h-20" style="background: #c96442;"></div>
+            <div class="p-3" style="background: var(--card);">
+              <p class="text-sm font-medium" style="color: var(--foreground);">品牌主色</p>
+              <p class="text-xs font-mono mt-1" style="color: var(--muted-foreground);">#c96442</p>
+            </div>
+          </div>
+          <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--border);">
+            <div class="h-20" style="background: #faf9f5;"></div>
+            <div class="p-3" style="background: var(--card);">
+              <p class="text-sm font-medium" style="color: var(--foreground);">纸张白</p>
+              <p class="text-xs font-mono mt-1" style="color: var(--muted-foreground);">#faf9f5</p>
+            </div>
+          </div>
+          <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--border);">
+            <div class="h-20" style="background: #3d3929;"></div>
+            <div class="p-3" style="background: var(--card);">
+              <p class="text-sm font-medium" style="color: var(--foreground);">墨棕文字</p>
+              <p class="text-xs font-mono mt-1" style="color: var(--muted-foreground);">#3d3929</p>
+            </div>
+          </div>
+          <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--border);">
+            <div class="h-20" style="background: linear-gradient(135deg, #d47250, #a84e28);"></div>
+            <div class="p-3" style="background: var(--card);">
+              <p class="text-sm font-medium" style="color: var(--foreground);">背景渐变</p>
+              <p class="text-xs font-mono mt-1" style="color: var(--muted-foreground);">陶土渐变</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer note -->
+      <div class="max-w-5xl mx-auto text-center pt-8" style="border-top: 1px solid var(--border);">
+        <p class="text-sm" style="color: var(--muted-foreground);">
+          图标以纸张与钢笔为核心意象，呼应 Markdown 写作工具的编辑本质；陶土橙与暖米色延续应用整体的安静写作气质
+        </p>
+      </div>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
