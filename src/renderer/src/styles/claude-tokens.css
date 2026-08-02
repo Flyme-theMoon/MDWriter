@@ -134,13 +134,22 @@
   --sidebar-accent-foreground: #343434;
   --sidebar-border: var(--border-100);
   --sidebar-ring: #b5b5b5;
+  /* code highlight — light palette */
+  --hljs-keyword: #cf222e;
+  --hljs-type: #953800;
+  --hljs-string: #0a3069;
+  --hljs-number: #0550ae;
+  --hljs-title: #8250df;
+  --hljs-attr: #953800;
+  --hljs-meta: #57606a;
+  --hljs-comment: #6e7781;
 
   /* ===== 3) Non-color tokens ===== */
   /* font — display (Newsreader) for slogans/headlines, sans (Poppins) for compact UI, serif (Lora) for reading surfaces */
   --font-display: Newsreader, Georgia, ui-serif, serif;
   --font-sans: Poppins, ui-sans-serif, system-ui, sans-serif;
   --font-serif: Lora, Georgia, ui-serif, serif;
-  --font-mono: Geist Mono, Cascadia Code, Consolas, ui-monospace, monospace;
+  --font-mono: 'Cascadia Code', Consolas, 'Geist Mono', ui-monospace, monospace;
   /* spacing */
   --spacing: 0.25rem;
   /* radius */
@@ -293,13 +302,22 @@
   --sidebar-accent-foreground: #c3c0b6;
   --sidebar-border: var(--border-300);
   --sidebar-ring: #b5b5b5;
+  /* code highlight — VS Code Dark+ palette (low saturation) */
+  --hljs-keyword: #569cd6;
+  --hljs-type: #4ec9b0;
+  --hljs-string: #ce9178;
+  --hljs-number: #b5cea8;
+  --hljs-title: #dcdcaa;
+  --hljs-attr: #9cdcfe;
+  --hljs-meta: #d4d4d4;
+  --hljs-comment: #6a9955;
 
   /* ===== 3) Non-color tokens ===== */
   /* font — sans (Poppins) for headings + compact UI, serif (Lora) for reading surfaces */
   --font-display: Newsreader, Georgia, ui-serif, serif;
   --font-sans: Poppins, ui-sans-serif, system-ui, sans-serif;
   --font-serif: Lora, Georgia, ui-serif, serif;
-  --font-mono: Geist Mono, Cascadia Code, Consolas, ui-monospace, monospace;
+  --font-mono: 'Cascadia Code', Consolas, 'Geist Mono', ui-monospace, monospace;
   /* radius */
   --radius-sm: 8px;
   --radius-md: 12px;

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { IpcRendererEvent } from 'electron'
 import type {
   CreateDirectoryPayload,
   CreateDirectoryResult,
@@ -20,6 +21,11 @@ import type {
   SaveFileResult
 } from '../shared/types/files'
 import type { AppState } from '../shared/types/state'
+
+const workspaceChangedHandlers = new Map<
+  (path: string) => void,
+  (event: IpcRendererEvent, path: string) => void
+>()
 
 const api = {
   platform: process.platform,
@@ -69,6 +75,22 @@ const api = {
     ipcRenderer.invoke('app-state:load'),
   saveAppState: (state: AppState): Promise<void> =>
     ipcRenderer.invoke('app-state:save', state),
+  setWatchedWorkspaces: (paths: string[]): void => {
+    ipcRenderer.send('workspace:set-watched', paths)
+  },
+  onWorkspaceChanged: (callback: (path: string) => void): void => {
+    const handler = (_event: IpcRendererEvent, path: string) =>
+      callback(path)
+    workspaceChangedHandlers.set(callback, handler)
+    ipcRenderer.on('workspace:changed', handler)
+  },
+  offWorkspaceChanged: (callback: (path: string) => void): void => {
+    const handler = workspaceChangedHandlers.get(callback)
+    if (handler) {
+      ipcRenderer.removeListener('workspace:changed', handler)
+      workspaceChangedHandlers.delete(callback)
+    }
+  },
   onBeforeClose: (callback: () => void): void => {
     ipcRenderer.on('app:before-close', callback)
   },

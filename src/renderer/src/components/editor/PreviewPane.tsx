@@ -14,7 +14,7 @@ import {
 } from '../../markdown/mermaid'
 import type { OutlineHeading } from '../../markdown/outline'
 
-interface PreviewPaneProps {
+export interface PreviewPaneProps {
   markdown: string
   onImagePreview?: (src: string) => void
   dark?: boolean

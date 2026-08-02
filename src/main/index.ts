@@ -8,7 +8,7 @@ import { getPlatformWindowOptions } from './windowOptions'
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'mdwriter',
-    privileges: { bypassCSP: true, stream: true, supportFetchAPI: true }
+    privileges: { stream: true, supportFetchAPI: true }
   }
 ])
 

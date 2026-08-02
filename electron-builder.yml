@@ -1,6 +1,6 @@
 appId: com.mdwriter.app
 productName: MDWriter
-buildVersion: 1.0.0.2
+buildVersion: 1.0.0.3
 directories:
   buildResources: resources
   output: dist
@@ -10,9 +10,9 @@ win:
   target:
     - portable
 portable:
-  artifactName: MDWriter-1.0.0.2-portable.exe
+  artifactName: MDWriter-1.0.0.3-portable.exe
 mac:
   category: public.app-category.productivity
-  artifactName: MDWriter-1.0.0.2.dmg
+  artifactName: MDWriter-1.0.0.3.dmg
   target:
     - dmg

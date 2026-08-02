@@ -1,8 +1,12 @@
+import DOMPurify from 'dompurify'
 import hljs from 'highlight.js'
+import markedKatex from 'marked-katex-extension'
 import { Marked } from 'marked'
 import appCss from '../styles/app.css?inline'
 import claudeTokensCss from '../styles/claude-tokens.css?inline'
+import katexCss from 'katex/dist/katex.min.css?inline'
 import { renderMermaidToElement } from './mermaid'
+import 'katex/dist/katex.min.css'
 
 hljs.registerAliases(['mongodb', 'mongo'], { languageName: 'javascript' })
 hljs.registerAliases(['sqlserver', 'mssql', 'tsql'], { languageName: 'sql' })
@@ -45,7 +49,30 @@ export function renderMarkdown(markdown: string): string {
       }
     }
   })
-  return marked.parse(markdown, { async: false }) as string
+  marked.use(markedKatex({ throwOnError: false, nonStandard: true }))
+  const html = marked.parse(markdown, { async: false }) as string
+  // Sanitize before injecting into the DOM: raw HTML in markdown must not be
+  // able to run scripts or event handlers. Unknown protocols are kept so
+  // mdwriter:// and data: image URLs keep working; javascript: is always
+  // removed by DOMPurify.
+  return DOMPurify.sanitize(html, {
+    ALLOW_UNKNOWN_PROTOCOLS: true,
+    FORBID_TAGS: [
+      'style',
+      'script',
+      'iframe',
+      'object',
+      'embed',
+      'form',
+      'input',
+      'button',
+      'textarea',
+      'select',
+      'link',
+      'meta',
+      'base'
+    ]
+  })
 }
 
 export async function buildExportHtml(
@@ -98,6 +125,7 @@ export async function buildExportHtml(
     <title>MDWriter Export</title>
     <style>
       ${claudeTokensCss}
+      ${katexCss}
       ${appCss}
       @page {
         size: A4;

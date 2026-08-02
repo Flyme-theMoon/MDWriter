@@ -1,4 +1,4 @@
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { syntaxHighlighting } from '@codemirror/language'
 import { Columns3, Rows3 } from 'lucide-react'
 import { editorLanguages } from '../../editor/languages'
 import {
@@ -53,9 +53,12 @@ import {
 import type { OutlineHeading } from '../../markdown/outline'
 import { rerenderMermaidElement } from '../../markdown/mermaid'
 import { findFuzzyRanges } from '../../search/fuzzy'
+import { vscodeHighlightStyle } from '../../editor/highlightStyle'
+import { math } from '../../editor/mathPlugin'
 import { mermaidDiagramPlugin } from './mermaidDiagramPlugin'
+import 'katex/dist/katex.min.css'
 
-interface PreviewEditorProps {
+export interface PreviewEditorProps {
   value: string
   onChange: (value: string) => void
   onImagePreview?: (src: string) => void
@@ -158,6 +161,20 @@ const headingShortcuts = $prose(() => {
     'Ctrl-4': setHeading(4)
   })
 })
+
+const selectLineShortcut = $prose(() =>
+  keymap({
+    'Mod-l': (state, dispatch) => {
+      const { $from, $to } = state.selection
+      const start = $from.start($from.depth)
+      const end = $to.end($to.depth)
+      dispatch?.(
+        state.tr.setSelection(TextSelection.create(state.doc, start, end))
+      )
+      return true
+    }
+  })
+)
 
 const codeBlockShortcuts = $prose((ctx) =>
   keymap({
@@ -292,7 +309,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
           ctx.set(codeBlockConfig.key, {
             ...defaultConfig,
             languages: editorLanguages,
-            extensions: [syntaxHighlighting(defaultHighlightStyle)],
+            extensions: [syntaxHighlighting(vscodeHighlightStyle)],
             copyIcon: '',
             expandIcon: '',
             searchIcon: '',
@@ -456,6 +473,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
         })
         .use(commonmark)
         .use(gfm)
+        .use(math)
         .use(mermaidDiagramPlugin)
         .use(history)
         .use(codeBlockComponent)
@@ -465,6 +483,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
         .use(upload)
         .use(exitCodeBlockAtEnd)
         .use(headingShortcuts)
+        .use(selectLineShortcut)
         .use(listener),
     []
   )

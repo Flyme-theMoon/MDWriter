@@ -27,10 +27,12 @@ import {
 import { exportPdf } from '../services/pdfService'
 import { loadAppState, saveAppState } from '../services/appStateService'
 import { openPdfPreview } from '../services/pdfPreviewService'
+import { setWatchedWorkspaces } from '../services/workspaceWatcher'
 
 let closeAllowed = false
 let closePromptActive = false
 let closePromptWindow: BrowserWindow | null = null
+let mainWindow: BrowserWindow | null = null
 
 function promptClose(): void {
   if (closePromptActive || !closePromptWindow) return
@@ -39,6 +41,7 @@ function promptClose(): void {
 }
 
 export function installCloseGuard(window: BrowserWindow): void {
+  mainWindow = window
   closePromptWindow = window
   window.on('close', (event) => {
     if (closeAllowed) return
@@ -63,6 +66,18 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('app-state:load', async () => loadAppState())
   ipcMain.handle('app-state:save', async (_event, state: AppState) => {
     await saveAppState(state)
+  })
+
+  ipcMain.on('workspace:set-watched', (_event, paths: unknown) => {
+    const safePaths = Array.isArray(paths)
+      ? paths.filter((path): path is string => typeof path === 'string')
+      : []
+
+    setWatchedWorkspaces(safePaths, (path) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('workspace:changed', path)
+      }
+    })
   })
 
   ipcMain.handle('directory:open', async () => {

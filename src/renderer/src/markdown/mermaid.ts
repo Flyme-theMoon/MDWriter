@@ -1,6 +1,10 @@
-import mermaid from 'mermaid'
-
 let renderSequence = 0
+let mermaidPromise: Promise<typeof import('mermaid')> | null = null
+
+function loadMermaid(): Promise<typeof import('mermaid')> {
+  mermaidPromise ??= import('mermaid')
+  return mermaidPromise
+}
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => {
@@ -29,10 +33,11 @@ export function decodeMermaidSource(encoded: string): string {
 }
 
 async function renderSvg(source: string, dark: boolean): Promise<string> {
+  const { default: mermaid } = await loadMermaid()
   mermaid.initialize({
     startOnLoad: false,
     theme: dark ? 'dark' : 'default',
-    securityLevel: 'loose',
+    securityLevel: 'strict',
     maxTextSize: 100000,
     fontFamily: 'Poppins, ui-sans-serif, system-ui, sans-serif',
     flowchart: {

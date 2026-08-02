@@ -54,6 +54,9 @@ declare global {
       openPath: (path: string) => Promise<OpenPathResult>
       loadAppState: () => Promise<AppState | null>
       saveAppState: (state: AppState) => Promise<void>
+      setWatchedWorkspaces: (paths: string[]) => void
+      onWorkspaceChanged: (callback: (path: string) => void) => void
+      offWorkspaceChanged: (callback: (path: string) => void) => void
       onBeforeClose: (callback: () => void) => void
       offBeforeClose: (callback: () => void) => void
       confirmClose: () => void

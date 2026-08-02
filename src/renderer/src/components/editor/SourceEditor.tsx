@@ -1,13 +1,22 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
+import { syntaxHighlighting } from '@codemirror/language'
 import type { ChangeSpec } from '@codemirror/state'
-import { EditorView, keymap } from '@codemirror/view'
+import { drawSelection, EditorView, keymap } from '@codemirror/view'
+import { vscodeHighlightStyle } from '../../editor/highlightStyle'
 import { editorLanguages } from '../../editor/languages'
 
-interface SourceEditorProps {
+// Mark the editor as dark/light without pulling in any built-in color theme
+// (e.g. One Dark), so the VS Code palette above is the only source of
+// syntax colors.
+const darkEditorTheme = EditorView.theme({}, { dark: true })
+const lightEditorTheme = EditorView.theme({}, { dark: false })
+
+export interface SourceEditorProps {
   value: string
   onChange: (value: string) => void
+  dark?: boolean
 }
 
 export interface SourceEditorHandle {
@@ -180,6 +189,22 @@ const codeBlockShortcuts = keymap.of([
   }
 ])
 
+const selectLineShortcut = keymap.of([
+  {
+    key: 'Mod-l',
+    run: (view: EditorView): boolean => {
+      const { state } = view
+      const fromLine = state.doc.lineAt(state.selection.main.from)
+      const toLine = state.doc.lineAt(state.selection.main.to)
+      view.dispatch({
+        selection: { anchor: fromLine.from, head: toLine.to },
+        scrollIntoView: true
+      })
+      return true
+    }
+  }
+])
+
 const formattingShortcuts = keymap.of([
   { key: 'Mod-b', run: toggleStrong },
   { key: 'Ctrl-b', run: toggleStrong },
@@ -202,14 +227,23 @@ const formattingShortcuts = keymap.of([
 const markdownExtensions = [
   markdown({ base: markdownLanguage, codeLanguages: editorLanguages }),
   EditorView.lineWrapping,
+  drawSelection(),
   headingShortcuts,
   codeBlockShortcuts,
+  selectLineShortcut,
   formattingShortcuts
 ]
 
 export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
-  function SourceEditor({ value, onChange }, ref) {
+  function SourceEditor({ value, onChange, dark = false }, ref) {
     const viewRef = useRef<EditorView | null>(null)
+    const extensions = useMemo(
+      () => [
+        ...markdownExtensions,
+        syntaxHighlighting(vscodeHighlightStyle)
+      ],
+      []
+    )
 
     useImperativeHandle(
       ref,
@@ -245,7 +279,8 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
         className="source-editor"
         value={value}
         height="100%"
-        extensions={markdownExtensions}
+        theme={dark ? darkEditorTheme : lightEditorTheme}
+        extensions={extensions}
         onChange={(next) => onChange(next)}
         onCreateEditor={(view) => {
           viewRef.current = view

@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useMemo,
   useRef,
@@ -110,18 +112,9 @@ import { WindowControls } from './components/WindowControls'
 import { CurrentSearchBar } from './components/search/CurrentSearchBar'
 import { GlobalSearchBar } from './components/sidebar/GlobalSearchBar'
 import { GlobalSearchResults } from './components/sidebar/GlobalSearchResults'
-import {
-  PreviewEditor,
-  type PreviewEditorHandle
-} from './components/editor/PreviewEditor'
-import {
-  PreviewPane,
-  type PreviewPaneHandle
-} from './components/editor/PreviewPane'
-import {
-  SourceEditor,
-  type SourceEditorHandle
-} from './components/editor/SourceEditor'
+import type { PreviewEditorHandle } from './components/editor/PreviewEditor'
+import type { PreviewPaneHandle } from './components/editor/PreviewPane'
+import type { SourceEditorHandle } from './components/editor/SourceEditor'
 import { FileContextMenu } from './components/sidebar/FileContextMenu'
 import {
   FileTree,
@@ -131,9 +124,28 @@ import {
 import { OutlineTree } from './components/sidebar/OutlineTree'
 import { ShortcutDialog } from './components/ShortcutDialog'
 import { UnsavedDialog } from './components/UnsavedDialog'
-import { buildExportHtml } from './markdown/renderer'
 import { findFuzzyRanges } from './search/fuzzy'
 import appIcon from './icon.png'
+
+// Editor engines are loaded on demand so startup only parses the app shell,
+// not every editor engine at once.
+const SourceEditor = lazy(() =>
+  import('./components/editor/SourceEditor').then((module) => ({
+    default: module.SourceEditor
+  }))
+)
+
+const PreviewPane = lazy(() =>
+  import('./components/editor/PreviewPane').then((module) => ({
+    default: module.PreviewPane
+  }))
+)
+
+const PreviewEditor = lazy(() =>
+  import('./components/editor/PreviewEditor').then((module) => ({
+    default: module.PreviewEditor
+  }))
+)
 
 interface EditorTab {
   id: string
@@ -183,6 +195,8 @@ export default function App() {
   const [dark, setDark] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [workspaces, setWorkspaces] = useState<OpenDirectoryResult[]>([])
+  const workspacesRef = useRef<OpenDirectoryResult[]>([])
+  workspacesRef.current = workspaces
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null)
   const [pendingCreate, setPendingCreate] = useState<PendingCreateEntry | null>(null)
   const [pendingRename, setPendingRename] = useState<PendingRenameEntry | null>(null)
@@ -270,12 +284,13 @@ export default function App() {
     let cancelled = false
 
     const restore = async (): Promise<void> => {
-      if (!window.mdwriter) {
+      const mdwriter = window.mdwriter
+      if (!mdwriter) {
         setHydrated(true)
         return
       }
 
-      const saved = await window.mdwriter.loadAppState()
+      const saved = await mdwriter.loadAppState()
       if (cancelled) return
 
       if (!saved) {
@@ -283,52 +298,65 @@ export default function App() {
         return
       }
 
-      const restoredWorkspaces: OpenDirectoryResult[] = []
-      for (const path of saved.workspaces) {
-        try {
-          restoredWorkspaces.push(await window.mdwriter.readDirectory(path))
-        } catch {
-          // Missing folders are skipped during restore.
-        }
-      }
+      const [workspaceResults, tabResults] = await Promise.all([
+        Promise.all(
+          (saved.workspaces ?? []).map(
+            async (path): Promise<OpenDirectoryResult | null> => {
+              try {
+                return await mdwriter.readDirectory(path)
+              } catch {
+                // Missing folders are skipped during restore.
+                return null
+              }
+            }
+          )
+        ),
+        Promise.all(
+          saved.tabs.map(async (savedTab): Promise<EditorTab | null> => {
+            if (savedTab.path && !savedTab.dirty) {
+              try {
+                const file = await mdwriter.readFile(savedTab.path)
+                return {
+                  id: savedTab.id,
+                  title: savedTab.title,
+                  path: savedTab.path,
+                  content: resolveImagePaths(file.content, savedTab.path),
+                  dirty: false
+                }
+              } catch {
+                // Files that no longer exist are skipped.
+                return null
+              }
+            }
 
-      const restoredTabs: EditorTab[] = []
-      for (const savedTab of saved.tabs) {
-        if (savedTab.path && !savedTab.dirty) {
-          try {
-            const file = await window.mdwriter.readFile(savedTab.path)
-            restoredTabs.push({
+            let content = savedTab.content ?? ''
+            if (!content && savedTab.path) {
+              try {
+                content = resolveImagePaths(
+                  (await mdwriter.readFile(savedTab.path)).content,
+                  savedTab.path
+                )
+              } catch {
+                // Keep the cached draft when the original file is missing.
+              }
+            }
+            return {
               id: savedTab.id,
               title: savedTab.title,
               path: savedTab.path,
-              content: resolveImagePaths(file.content, savedTab.path),
-              dirty: false
-            })
-          } catch {
-            // Files that no longer exist are skipped.
-          }
-          continue
-        }
+              content,
+              dirty: savedTab.dirty
+            }
+          })
+        )
+      ])
 
-        let content = savedTab.content ?? ''
-        if (!content && savedTab.path) {
-          try {
-            content = resolveImagePaths(
-              (await window.mdwriter.readFile(savedTab.path)).content,
-              savedTab.path
-            )
-          } catch {
-            // Keep the cached draft when the original file is missing.
-          }
-        }
-        restoredTabs.push({
-          id: savedTab.id,
-          title: savedTab.title,
-          path: savedTab.path,
-          content,
-          dirty: savedTab.dirty
-        })
-      }
+      const restoredWorkspaces = workspaceResults.filter(
+        (workspace): workspace is OpenDirectoryResult => workspace !== null
+      )
+      const restoredTabs = tabResults.filter(
+        (tab): tab is EditorTab => tab !== null
+      )
 
       if (restoredTabs.length === 0) {
         const id = String(nextId.current)
@@ -490,18 +518,46 @@ export default function App() {
   const refreshWorkspaces = async (
     roots: OpenDirectoryResult[] = workspaces
   ): Promise<void> => {
+    const mdwriter = window.mdwriter
+    if (!mdwriter) return
+
+    const refreshed = await Promise.all(
+      roots.map(async (root) => {
+        try {
+          return await mdwriter.readDirectory(root.path)
+        } catch {
+          return root
+        }
+      })
+    )
+
+    setWorkspaces((current) =>
+      current.map(
+        (existing) =>
+          refreshed.find((root) => root.path === existing.path) ?? existing
+      )
+    )
+  }
+
+  useEffect(() => {
     if (!window.mdwriter) return
 
-    const next: OpenDirectoryResult[] = []
-    for (const root of roots) {
-      try {
-        next.push(await window.mdwriter.readDirectory(root.path))
-      } catch {
-        next.push(root)
-      }
+    const handleWorkspaceChanged = (changedPath: string): void => {
+      const roots = workspacesRef.current.filter(
+        (workspace) => workspace.path === changedPath
+      )
+      if (roots.length > 0) void refreshWorkspaces(roots)
     }
-    setWorkspaces(next)
-  }
+
+    window.mdwriter.onWorkspaceChanged(handleWorkspaceChanged)
+    return () => window.mdwriter?.offWorkspaceChanged(handleWorkspaceChanged)
+  }, [])
+
+  useEffect(() => {
+    window.mdwriter?.setWatchedWorkspaces(
+      workspaces.map((workspace) => workspace.path)
+    )
+  }, [workspaces])
 
   const openReadFile = (file: ReadFileResult): void => {
     const existing = tabs.find((tab) => tab.path === file.path)
@@ -1025,6 +1081,7 @@ export default function App() {
     if (!window.mdwriter || !activeTab) return
 
     const defaultName = activeTab.title.replace(/\.md$/i, '') + '.pdf'
+    const { buildExportHtml } = await import('./markdown/renderer')
     await window.mdwriter.exportPdf({
       html: await buildExportHtml(activeTab.content, dark),
       defaultName
@@ -1589,13 +1646,14 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <>
+            <Suspense fallback={<div className="editor-loading">正在加载编辑器…</div>}>
               {mode === 'source' && (
                 <SourceEditor
                   ref={sourceEditorRef}
                   key={`${activeTab.id}-source`}
                   value={activeTab.content}
                   onChange={updateActiveContent}
+                  dark={dark}
                 />
               )}
               {mode === 'split' && (
@@ -1606,6 +1664,7 @@ export default function App() {
                       key={`${activeTab.id}-split-source`}
                       value={activeTab.content}
                       onChange={updateActiveContent}
+                      dark={dark}
                     />
                   </div>
                   <div className="preview-pane">
@@ -1631,7 +1690,7 @@ export default function App() {
                   />
                 </div>
               )}
-            </>
+            </Suspense>
           )}
         </div>
       </main>
