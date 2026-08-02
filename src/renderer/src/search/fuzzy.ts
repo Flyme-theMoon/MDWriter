@@ -10,25 +10,12 @@ export function findFuzzyRanges(text: string, query: string): FuzzyRange[] {
 
   if (!lowerQuery || !lowerText) return ranges
 
-  for (let start = 0; start < lowerText.length; start += 1) {
-    if (lowerText[start] !== lowerQuery[0]) continue
-
-    let queryIndex = 1
-    let end = start + 1
-    for (
-      let index = start + 1;
-      index < lowerText.length && queryIndex < lowerQuery.length;
-      index += 1
-    ) {
-      if (lowerText[index] === lowerQuery[queryIndex]) {
-        queryIndex += 1
-        end = index + 1
-      }
-    }
-
-    if (queryIndex === lowerQuery.length) {
-      ranges.push({ start, end })
-    }
+  let startIndex = 0
+  while (startIndex < lowerText.length) {
+    const index = lowerText.indexOf(lowerQuery, startIndex)
+    if (index === -1) break
+    ranges.push({ start: index, end: index + lowerQuery.length })
+    startIndex = index + 1
   }
 
   return ranges

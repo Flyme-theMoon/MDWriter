@@ -93,19 +93,10 @@ function fuzzyMatchRange(
 
   const lowerText = text.toLowerCase()
   const lowerQuery = query.toLowerCase()
-  let start = -1
-  let queryIndex = 0
+  const index = lowerText.indexOf(lowerQuery)
 
-  for (let index = 0; index < lowerText.length; index += 1) {
-    if (lowerText[index] !== lowerQuery[queryIndex]) continue
-    if (queryIndex === 0) start = index
-    queryIndex += 1
-    if (queryIndex === lowerQuery.length) {
-      return { start, end: index + 1 }
-    }
-  }
-
-  return null
+  if (index === -1) return null
+  return { start: index, end: index + lowerQuery.length }
 }
 
 async function collectSearchMatches(
