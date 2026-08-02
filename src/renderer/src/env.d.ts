@@ -36,6 +36,16 @@ declare global {
       searchDirectory: (payload: SearchDirectoryPayload) => Promise<GlobalSearchMatch[]>
       readFile: (path: string) => Promise<ReadFileResult>
       saveFile: (payload: SaveFilePayload) => Promise<SaveFileResult>
+      saveImage: (payload: {
+        buffer: ArrayBuffer
+        fileName: string
+        fileDir: string
+      }) => Promise<{ relativePath: string } | { error: string }>
+      getTempDir: () => Promise<string>
+      moveImageToDir: (payload: {
+        sourcePath: string
+        targetDir: string
+      }) => Promise<{ relativePath: string } | { error: string }>
       createFile: (payload: CreateFilePayload) => Promise<CreateFileResult>
       createDirectory: (payload: CreateDirectoryPayload) => Promise<CreateDirectoryResult>
       copyFile: (payload: CopyFilePayload) => Promise<CopyFileResult>

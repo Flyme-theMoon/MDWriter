@@ -34,6 +34,77 @@ import type { OutlineHeading } from './markdown/outline'
 import { buildOutlineTree, extractOutline } from './markdown/outline'
 import { AppCloseDialog } from './components/AppCloseDialog'
 import { FileDeleteDialog } from './components/FileDeleteDialog'
+
+// Transform relative image paths in markdown to absolute mdwriter:// URLs
+function resolveImagePaths(content: string, filePath: string): string {
+  const fileDir = filePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
+  return content.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    (match, alt, url) => {
+      const href = url.split(/\s+/)[0]
+      if (
+        href.startsWith('http://') ||
+        href.startsWith('https://') ||
+        href.startsWith('mdwriter://') ||
+        href.startsWith('data:')
+      ) {
+        return match
+      }
+      return `![${alt}](mdwriter:///${fileDir}/${url})`
+    }
+  )
+}
+
+// Transform absolute mdwriter:// image URLs back to relative paths
+function relativizeImagePaths(content: string, filePath: string): string {
+  const fileDir = filePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
+  const escapedDir = fileDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return content.replace(new RegExp(`mdwriter:///${escapedDir}/`, 'g'), '')
+}
+
+// Copy images from temp paths to the file's images/ directory and update references
+async function resolveTempImages(
+  content: string,
+  fileDir: string
+): Promise<string> {
+  if (!window.mdwriter) return content
+
+  const normalizedFileDir = fileDir.replace(/\\/g, '/')
+  const mdwriterRegex = /!\[([^\]]*)\]\(mdwriter:\/\/\/([^)]+)\)/g
+
+  const replacements: Array<{ full: string; replacement: string }> = []
+  let match
+
+  while ((match = mdwriterRegex.exec(content)) !== null) {
+    const [full, alt, urlPart] = match
+    const href = urlPart.split(/\s+/)[0] // ignore title attribute
+
+    // Skip paths already under the current fileDir
+    if (href.startsWith(normalizedFileDir)) {
+      continue
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    const result = await window.mdwriter.moveImageToDir({
+      sourcePath: href,
+      targetDir: fileDir
+    })
+
+    if ('error' in result) continue
+
+    const newSrc = `mdwriter:///${normalizedFileDir}/${result.relativePath}`
+    replacements.push({ full, replacement: `![${alt}](${newSrc})` })
+  }
+
+  // Apply all replacements
+  let updated = content
+  for (const { full, replacement } of replacements) {
+    updated = updated.replace(full, replacement)
+  }
+
+  return updated
+}
+
 import { ImageLightbox } from './components/ImageLightbox'
 import { WindowControls } from './components/WindowControls'
 import { CurrentSearchBar } from './components/search/CurrentSearchBar'
@@ -90,6 +161,7 @@ interface CopiedMarkdown {
 interface DeleteFileTarget {
   path: string
   name: string
+  kind: 'file' | 'folder'
 }
 
 function parentDirectory(filePath: string): string {
@@ -184,6 +256,10 @@ export default function App() {
   }, [dark])
 
   useEffect(() => {
+    ;(window as any).__workspaces = workspaces.map((ws) => ws.path)
+  }, [workspaces])
+
+  useEffect(() => {
     if (!window.mdwriter) return
     const handler = (max: boolean) => setMaximized(max)
     window.mdwriter.onMaximizeChanged(handler)
@@ -225,7 +301,7 @@ export default function App() {
               id: savedTab.id,
               title: savedTab.title,
               path: savedTab.path,
-              content: file.content,
+              content: resolveImagePaths(file.content, savedTab.path),
               dirty: false
             })
           } catch {
@@ -237,7 +313,10 @@ export default function App() {
         let content = savedTab.content ?? ''
         if (!content && savedTab.path) {
           try {
-            content = (await window.mdwriter.readFile(savedTab.path)).content
+            content = resolveImagePaths(
+              (await window.mdwriter.readFile(savedTab.path)).content,
+              savedTab.path
+            )
           } catch {
             // Keep the cached draft when the original file is missing.
           }
@@ -436,7 +515,7 @@ export default function App() {
     const tab: EditorTab = {
       id,
       title: file.path.split(/[\\/]/).pop() ?? '未命名.md',
-      content: file.content,
+      content: resolveImagePaths(file.content, file.path),
       path: file.path,
       dirty: false
     }
@@ -503,10 +582,19 @@ export default function App() {
         const file = await window.mdwriter.readFile(result.path)
         openReadFile(file)
       } else {
-        await window.mdwriter.createDirectory({
+        const result = await window.mdwriter.createDirectory({
           directoryPath: entry.directoryPath,
           name
         })
+        // Create images/ subdirectory for the new folder
+        try {
+          await window.mdwriter.createDirectory({
+            directoryPath: result.path,
+            name: 'images'
+          })
+        } catch {
+          // Non-critical; image saving will handle missing images/ gracefully
+        }
         await refreshWorkspaces()
       }
     } catch {
@@ -675,11 +763,12 @@ export default function App() {
   }
 
   const handleContextDeleteFile = (): void => {
-    if (!contextMenu || contextMenu.kind !== 'file') return
+    if (!contextMenu) return
     setPendingRename(null)
     setDeleteTarget({
       path: contextMenu.path,
-      name: contextMenu.name
+      name: contextMenu.name,
+      kind: contextMenu.kind
     })
   }
 
@@ -687,9 +776,38 @@ export default function App() {
     if (!deleteTarget || !window.mdwriter) return
 
     const target = deleteTarget
-    const remaining = tabs.filter((tab) => tab.path !== target.path)
     setDeleteTarget(null)
 
+    if (target.kind === 'folder') {
+      // Close all tabs that are inside the deleted folder
+      const separator = target.path.includes('\\') ? '\\' : '/'
+      const prefix = target.path.endsWith(separator)
+        ? target.path
+        : `${target.path}${separator}`
+      const remaining = tabs.filter((tab) => {
+        if (!tab.path) return true
+        return !tab.path.startsWith(prefix)
+      })
+      await window.mdwriter.deleteFile({ path: target.path })
+      await refreshWorkspaces()
+
+      if (remaining.length === 0) {
+        setTabs([])
+        setActiveTabId('')
+        return
+      }
+
+      setTabs(remaining)
+      if (activeTab && remaining.every((t) => t.id !== activeTab.id)) {
+        const index = tabs.findIndex((tab) => tab.id === activeTab?.id)
+        setActiveTabId(
+          remaining[Math.max(0, index - 1)]?.id ?? remaining[0].id
+        )
+      }
+      return
+    }
+
+    const remaining = tabs.filter((tab) => tab.path !== target.path)
     await window.mdwriter.deleteFile({ path: target.path })
     await refreshWorkspaces()
 
@@ -713,14 +831,34 @@ export default function App() {
     const tab = tabs.find((item) => item.id === id)
     if (!tab) return null
 
+    const content = tab.path ? relativizeImagePaths(tab.content, tab.path) : tab.content
+
     const result = await window.mdwriter.saveFile({
       path: tab.path,
-      content: tab.content,
+      content,
       defaultName: tab.title
     })
 
     if (!result.canceled && result.path) {
       const savedPath = result.path
+      let processedContent = tab.content
+
+      // First save - resolve temporary images to permanent directory
+      if (!tab.path) {
+        const fileDir = savedPath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
+        processedContent = await resolveTempImages(tab.content, fileDir)
+
+        if (processedContent !== tab.content) {
+          // Save again with updated image paths
+          const relativeContent = relativizeImagePaths(processedContent, savedPath)
+          await window.mdwriter.saveFile({
+            path: savedPath,
+            content: relativeContent,
+            defaultName: tab.title
+          })
+        }
+      }
+
       setTabs((current) =>
         current.map((tab) =>
           tab.id === id
@@ -728,9 +866,10 @@ export default function App() {
                 ...tab,
                 path: savedPath,
                 title: savedPath.split(/[\\/]/).pop() ?? tab.title,
+                content: processedContent,
                 dirty: false
               }
-          : tab
+            : tab
         )
       )
       if (savedPath !== tab.path) {
@@ -1487,6 +1626,7 @@ export default function App() {
                     value={activeTab.content}
                     onChange={updateActiveContent}
                     onImagePreview={setLightboxSrc}
+                    filePath={activeTab.path}
                     dark={dark}
                   />
                 </div>
@@ -1543,10 +1683,13 @@ export default function App() {
       {deleteTarget && (
         <FileDeleteDialog
           name={deleteTarget.name}
+          kind={deleteTarget.kind}
           warning={
-            tabs.some((tab) => tab.path === deleteTarget.path && tab.dirty)
-              ? '该文件有未保存修改，删除后这些修改会丢失。'
-              : '此操作会永久删除磁盘上的文件。'
+            deleteTarget.kind === 'folder'
+              ? '此操作会永久删除该文件夹及其所有内容，不可恢复。'
+              : tabs.some((tab) => tab.path === deleteTarget.path && tab.dirty)
+                ? '该文件有未保存修改，删除后这些修改会丢失。'
+                : '此操作会永久删除磁盘上的文件。'
           }
           onDelete={() => void handleDeleteFile()}
           onCancel={() => setDeleteTarget(null)}

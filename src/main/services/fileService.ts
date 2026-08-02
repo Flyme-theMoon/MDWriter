@@ -5,6 +5,8 @@ import {
   readdir,
   readFile,
   rename,
+  rm,
+  stat,
   unlink,
   writeFile
 } from 'node:fs/promises'
@@ -259,5 +261,10 @@ export async function renameEntry(
 }
 
 export async function deleteFile(filePath: string): Promise<void> {
-  await unlink(filePath)
+  const stats = await stat(filePath)
+  if (stats.isDirectory()) {
+    await rm(filePath, { recursive: true, force: true })
+  } else {
+    await unlink(filePath)
+  }
 }

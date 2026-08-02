@@ -71,6 +71,22 @@ export async function buildExportHtml(
       pre?.replaceWith(container)
       await renderMermaidToElement(code.textContent ?? '', container, dark)
     }
+
+    // Detect code blocks with long lines and shrink font to prevent overflow
+    const codeBlocks = exportRoot.querySelectorAll('pre code.hljs')
+    for (const code of codeBlocks) {
+      const text = code.textContent ?? ''
+      const maxLineLength = text.split('\n').reduce(
+        (max, line) => Math.max(max, line.length),
+        0
+      )
+      if (maxLineLength > 72) {
+        const pre = code.closest('pre')
+        if (pre) {
+          pre.classList.add('code-long-lines')
+        }
+      }
+    }
   }
 
   const renderedBody = exportRoot?.innerHTML ?? body
@@ -85,23 +101,28 @@ export async function buildExportHtml(
       ${appCss}
       @page {
         size: A4;
-        margin: 16mm 18mm;
+        margin: 0;
       }
-      html,
-      body {
+      html {
         height: auto;
+        min-height: 100%;
         overflow: visible;
         background: var(--background);
       }
       body {
-        padding: 0;
+        margin: 0;
+        padding: 18mm;
+        background: transparent;
       }
       .markdown-preview {
-        max-width: 100%;
         margin: 0;
-        padding: 0;
-        border: 0;
+        max-width: 100%;
         box-shadow: none;
+        padding: 8mm;
+      }
+      .markdown-preview pre.code-long-lines code {
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
       }
       .markdown-preview pre,
       .markdown-preview table,

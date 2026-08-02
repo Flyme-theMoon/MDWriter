@@ -15,7 +15,7 @@ import {
 } from '@milkdown/components/code-block'
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
-import { upload } from '@milkdown/plugin-upload'
+import { upload, uploadConfig } from '@milkdown/plugin-upload'
 import { keymap } from '@milkdown/prose/keymap'
 import {
   Plugin,
@@ -23,6 +23,7 @@ import {
   TextSelection,
   type Command
 } from '@milkdown/prose/state'
+import { Decoration } from '@milkdown/prose/view'
 import {
   commonmark,
   createCodeBlockCommand,
@@ -58,6 +59,7 @@ interface PreviewEditorProps {
   value: string
   onChange: (value: string) => void
   onImagePreview?: (src: string) => void
+  filePath?: string | null
   dark?: boolean
 }
 
@@ -192,8 +194,10 @@ const clearSearchIconSvg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
 
 const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
-  function MilkdownInstance({ value, onChange, onImagePreview, dark = false }, ref) {
+  function MilkdownInstance({ value, onChange, onImagePreview, filePath, dark = false }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const filePathRef = useRef(filePath)
+  filePathRef.current = filePath
   const [tableToolbar, setTableToolbar] = useState<{
     left: number
     top: number
@@ -295,6 +299,159 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
             clearSearchIcon: clearSearchIconSvg,
             previewLabel: '',
             renderPreview: () => null
+          })
+          ctx.set(uploadConfig.key, {
+            uploader: async (files, schema) => {
+              const images: File[] = []
+              for (let i = 0; i < files.length; i++) {
+                const file = files.item(i)
+                if (!file || !file.type.includes('image')) continue
+                images.push(file)
+              }
+
+              if (images.length === 0) return []
+
+              // No file saved yet — save to temp directory
+              const currentFilePath = filePathRef.current
+              if (!currentFilePath) {
+                const tempDir = await window.mdwriter!.getTempDir()
+                const results = await Promise.all(
+                  images.map(async (img) => {
+                    const buffer = await img.arrayBuffer()
+                    const result = await window.mdwriter!.saveImage({
+                      buffer,
+                      fileName: img.name || 'pasted-image.png',
+                      fileDir: tempDir
+                    })
+                    if ('error' in result) {
+                      console.error('[PreviewEditor] saveImage to temp failed:', result.error)
+                      // Fallback to base64 on error
+                      const { readImageAsBase64 } = await import(
+                        '@milkdown/plugin-upload'
+                      )
+                      const data = await readImageAsBase64(img)
+                      return schema.nodes.image.createAndFill({
+                        src: data.src,
+                        alt: data.alt
+                      })
+                    }
+                    return schema.nodes.image.createAndFill({
+                      src: `mdwriter:///${tempDir}/${result.relativePath}`,
+                      alt: img.name || 'image'
+                    })
+                  })
+                )
+                return results.filter((r) => r != null) as any[]
+              }
+
+              // Determine file directory from the markdown file path
+              if (typeof currentFilePath !== 'string' || !currentFilePath) {
+                const tempDir = await window.mdwriter!.getTempDir()
+                const results = await Promise.all(
+                  images.map(async (img) => {
+                    const buffer = await img.arrayBuffer()
+                    const result = await window.mdwriter!.saveImage({
+                      buffer,
+                      fileName: img.name || 'pasted-image.png',
+                      fileDir: tempDir
+                    })
+                    if ('error' in result) {
+                      console.error('[PreviewEditor] saveImage to temp (fallback) failed:', result.error)
+                      const { readImageAsBase64 } = await import(
+                        '@milkdown/plugin-upload'
+                      )
+                      const data = await readImageAsBase64(img)
+                      return schema.nodes.image.createAndFill({
+                        src: data.src,
+                        alt: data.alt
+                      })
+                    }
+                    return schema.nodes.image.createAndFill({
+                      src: `mdwriter:///${tempDir}/${result.relativePath}`,
+                      alt: img.name || 'image'
+                    })
+                  })
+                )
+                return results.filter((r) => r != null) as any[]
+              }
+              const fileDir = currentFilePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
+              if (!fileDir) {
+                const tempDir = await window.mdwriter!.getTempDir()
+                const results = await Promise.all(
+                  images.map(async (img) => {
+                    const buffer = await img.arrayBuffer()
+                    const result = await window.mdwriter!.saveImage({
+                      buffer,
+                      fileName: img.name || 'pasted-image.png',
+                      fileDir: tempDir
+                    })
+                    if ('error' in result) {
+                      console.error('[PreviewEditor] saveImage to temp (fallback) failed:', result.error)
+                      const { readImageAsBase64 } = await import(
+                        '@milkdown/plugin-upload'
+                      )
+                      const data = await readImageAsBase64(img)
+                      return schema.nodes.image.createAndFill({
+                        src: data.src,
+                        alt: data.alt
+                      })
+                    }
+                    return schema.nodes.image.createAndFill({
+                      src: `mdwriter:///${tempDir}/${result.relativePath}`,
+                      alt: img.name || 'image'
+                    })
+                  })
+                )
+                return results.filter((r) => r != null) as any[]
+              }
+
+              const results = await Promise.all(
+                images.map(async (img) => {
+                  const buffer = await img.arrayBuffer()
+                  const result = await window.mdwriter!.saveImage({
+                    buffer,
+                    fileName: img.name || 'pasted-image.png',
+                    fileDir
+                  })
+                  if ('error' in result) {
+                    console.error('[PreviewEditor] saveImage to fileDir failed:', result.error)
+                    // Fallback to temp dir on error
+                    const tempDir = await window.mdwriter!.getTempDir()
+                    const retryResult = await window.mdwriter!.saveImage({
+                      buffer,
+                      fileName: img.name || 'pasted-image.png',
+                      fileDir: tempDir
+                    })
+                    if ('error' in retryResult) {
+                      console.error('[PreviewEditor] saveImage to temp (retry) failed:', retryResult.error)
+                      const { readImageAsBase64 } = await import(
+                        '@milkdown/plugin-upload'
+                      )
+                      const data = await readImageAsBase64(img)
+                      return schema.nodes.image.createAndFill({
+                        src: data.src,
+                        alt: data.alt
+                      })
+                    }
+                    return schema.nodes.image.createAndFill({
+                      src: `mdwriter:///${tempDir}/${retryResult.relativePath}`,
+                      alt: img.name || 'image'
+                    })
+                  }
+                  return schema.nodes.image.createAndFill({
+                    src: `mdwriter:///${fileDir}/${result.relativePath}`,
+                    alt: img.name || 'image'
+                  })
+                })
+              )
+              return results.filter((r) => r != null) as any[]
+            },
+            enableHtmlFileUploader: true,
+            uploadWidgetFactory: (pos: number, spec: any) => {
+              const widgetDOM = document.createElement('span')
+              widgetDOM.textContent = '上传中...'
+              return Decoration.widget(pos, widgetDOM, spec)
+            }
           })
         })
         .use(commonmark)

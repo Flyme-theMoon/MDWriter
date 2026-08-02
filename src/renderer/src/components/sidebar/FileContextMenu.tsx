@@ -150,6 +150,20 @@ export function FileContextMenu({
               </button>
             </>
           )}
+          {!isRoot && (
+            <>
+              <div className="file-context-separator" />
+              <button
+                className="file-context-item danger"
+                type="button"
+                role="menuitem"
+                onClick={() => run(onDeleteFile)}
+              >
+                <Trash2 size={14} />
+                <span>删除文件夹</span>
+              </button>
+            </>
+          )}
         </>
       )}
     </div>

@@ -1,5 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron'
-import { basename } from 'node:path'
+import { basename, dirname, extname, join } from 'node:path'
+import { copyFile, mkdir, stat, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import type { AppState } from '../../shared/types/state'
 import type {
   CreateDirectoryPayload,
@@ -48,6 +50,12 @@ export function installCloseGuard(window: BrowserWindow): void {
   })
   window.on('unmaximize', () => {
     window.webContents.send('window:maximize-changed', false)
+  })
+
+  app.on('before-quit', (event) => {
+    if (closeAllowed) return
+    event.preventDefault()
+    promptClose()
   })
 }
 
@@ -112,6 +120,90 @@ export function registerIpcHandlers(): void {
     await saveTextFile(path, payload.content)
     return { canceled: false, path }
   })
+
+  ipcMain.handle('image:get-temp-dir', async (): Promise<string> => {
+    const tempDir = join(app.getPath('temp'), 'mdwriter-images', randomUUID())
+    await mkdir(tempDir, { recursive: true })
+    return tempDir
+  })
+
+  ipcMain.handle(
+    'image:save',
+    async (
+      _event,
+      payload: { buffer: ArrayBuffer; fileName: string; fileDir: string }
+    ): Promise<{ relativePath: string } | { error: string }> => {
+      try {
+        // Check if images/ subdirectory exists
+        let hasImagesDir = false
+        try {
+          const st = await stat(join(payload.fileDir, 'images'))
+          hasImagesDir = st.isDirectory()
+        } catch {
+          hasImagesDir = false
+        }
+
+        const targetDir = hasImagesDir
+          ? join(payload.fileDir, 'images')
+          : payload.fileDir
+
+        // Avoid filename collisions: append timestamp + random suffix
+        const ext = payload.fileName.includes('.')
+          ? payload.fileName.slice(payload.fileName.lastIndexOf('.'))
+          : '.png'
+        const baseName = payload.fileName.includes('.')
+          ? payload.fileName.slice(0, payload.fileName.lastIndexOf('.'))
+          : payload.fileName
+        const timestamp = Date.now().toString(36)
+        const random = Math.random().toString(36).slice(2, 6)
+        const safeFileName = `${baseName}-${timestamp}-${random}${ext}`
+
+        const targetPath = join(targetDir, safeFileName)
+        await writeFile(targetPath, Buffer.from(payload.buffer))
+
+        return { relativePath: hasImagesDir ? `images/${safeFileName}` : safeFileName }
+      } catch (err: any) {
+        console.error('[image:save] Error:', err)
+        return { error: err?.message ?? String(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'image:move-to-dir',
+    async (
+      _event,
+      payload: { sourcePath: string; targetDir: string }
+    ): Promise<{ relativePath: string } | { error: string }> => {
+      try {
+        // Check if images/ subdirectory exists in targetDir
+        let hasImagesDir = false
+        try {
+          const st = await stat(join(payload.targetDir, 'images'))
+          hasImagesDir = st.isDirectory()
+        } catch {
+          hasImagesDir = false
+        }
+
+        const targetDir = hasImagesDir
+          ? join(payload.targetDir, 'images')
+          : payload.targetDir
+
+        const sourceExt = extname(payload.sourcePath) || '.png'
+        const baseName = basename(payload.sourcePath, sourceExt)
+        const timestamp = Date.now().toString(36)
+        const random = Math.random().toString(36).slice(2, 6)
+        const safeFileName = `${baseName}-${timestamp}-${random}${sourceExt}`
+
+        const targetPath = join(targetDir, safeFileName)
+        await copyFile(payload.sourcePath, targetPath)
+
+        return { relativePath: hasImagesDir ? `images/${safeFileName}` : safeFileName }
+      } catch (err: any) {
+        return { error: err?.message ?? String(err) }
+      }
+    }
+  )
 
   ipcMain.handle('file:create', async (_event, payload: CreateFilePayload) => ({
     path: await createMarkdownFile(
@@ -184,9 +276,3 @@ export function registerIpcHandlers(): void {
     BrowserWindow.getAllWindows()[0]?.close()
   })
 }
-
-app.on('before-quit', (event) => {
-  if (closeAllowed) return
-  event.preventDefault()
-  promptClose()
-})

@@ -40,6 +40,19 @@ const api = {
     ipcRenderer.invoke('file:read', path),
   saveFile: (payload: SaveFilePayload): Promise<SaveFileResult> =>
     ipcRenderer.invoke('file:save', payload),
+  saveImage: (payload: {
+    buffer: ArrayBuffer
+    fileName: string
+    fileDir: string
+  }): Promise<{ relativePath: string } | { error: string }> =>
+    ipcRenderer.invoke('image:save', payload),
+  getTempDir: (): Promise<string> =>
+    ipcRenderer.invoke('image:get-temp-dir'),
+  moveImageToDir: (payload: {
+    sourcePath: string
+    targetDir: string
+  }): Promise<{ relativePath: string } | { error: string }> =>
+    ipcRenderer.invoke('image:move-to-dir', payload),
   createFile: (payload: CreateFilePayload): Promise<CreateFileResult> =>
     ipcRenderer.invoke('file:create', payload),
   createDirectory: (payload: CreateDirectoryPayload): Promise<CreateDirectoryResult> =>
