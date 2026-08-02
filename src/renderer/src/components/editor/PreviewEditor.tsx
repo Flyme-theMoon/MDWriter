@@ -1,6 +1,6 @@
-import { languages } from '@codemirror/language-data'
 import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { Columns3, Rows3 } from 'lucide-react'
+import { editorLanguages } from '../../editor/languages'
 import {
   commandsCtx,
   Editor,
@@ -25,12 +25,18 @@ import {
 } from '@milkdown/prose/state'
 import {
   commonmark,
-  createCodeBlockCommand
+  createCodeBlockCommand,
+  toggleEmphasisCommand,
+  toggleInlineCodeCommand,
+  toggleStrongCommand,
+  wrapInBulletListCommand,
+  wrapInOrderedListCommand
 } from '@milkdown/preset-commonmark'
 import {
   addColAfterCommand,
   addRowAfterCommand,
-  gfm
+  gfm,
+  toggleStrikethroughCommand
 } from '@milkdown/preset-gfm'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { $prose } from '@milkdown/utils'
@@ -45,6 +51,7 @@ import {
 } from 'react'
 import type { OutlineHeading } from '../../markdown/outline'
 import { rerenderMermaidElement } from '../../markdown/mermaid'
+import { findFuzzyRanges } from '../../search/fuzzy'
 import { mermaidDiagramPlugin } from './mermaidDiagramPlugin'
 
 interface PreviewEditorProps {
@@ -56,6 +63,7 @@ interface PreviewEditorProps {
 
 export interface PreviewEditorHandle {
   scrollToHeading: (heading: OutlineHeading) => void
+  scrollToText: (text: string) => void
 }
 
 const exitCodeBlockAtEnd = $prose(() =>
@@ -156,6 +164,33 @@ const codeBlockShortcuts = $prose((ctx) =>
   })
 )
 
+const formattingShortcuts = $prose((ctx) => {
+  const runCommand = (key: CmdKey<unknown>) => (): boolean =>
+    ctx.get(commandsCtx).call(key)
+
+  return keymap({
+    'Mod-b': runCommand(toggleStrongCommand.key),
+    'Ctrl-b': runCommand(toggleStrongCommand.key),
+    'Mod-i': runCommand(toggleEmphasisCommand.key),
+    'Ctrl-i': runCommand(toggleEmphasisCommand.key),
+    'Mod-Shift-`': runCommand(toggleInlineCodeCommand.key),
+    'Ctrl-Shift-`': runCommand(toggleInlineCodeCommand.key),
+    'Mod-Alt-x': runCommand(toggleStrikethroughCommand.key),
+    'Ctrl-Alt-x': runCommand(toggleStrikethroughCommand.key),
+    'Mod-[': runCommand(wrapInOrderedListCommand.key),
+    'Mod-]': runCommand(wrapInBulletListCommand.key),
+    'Mod-Shift-[': runCommand(wrapInOrderedListCommand.key),
+    'Mod-Shift-]': runCommand(wrapInBulletListCommand.key),
+    'Ctrl-[': runCommand(wrapInOrderedListCommand.key),
+    'Ctrl-]': runCommand(wrapInBulletListCommand.key),
+    'Ctrl-Shift-[': runCommand(wrapInOrderedListCommand.key),
+    'Ctrl-Shift-]': runCommand(wrapInBulletListCommand.key)
+  })
+})
+
+const clearSearchIconSvg =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+
 const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
   function MilkdownInstance({ value, onChange, onImagePreview, dark = false }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -195,6 +230,40 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
           })
 
         target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      },
+      scrollToText(text: string) {
+        const container = containerRef.current
+        if (!container) return
+
+        const query = text
+          .replace(/^#{1,6}\s+/, '')
+          .replace(/^[-*+]\s+/, '')
+          .replace(/^\d+\.\s+/, '')
+          .replace(/[`*_~]/g, '')
+          .trim()
+          .toLowerCase()
+        if (!query) return
+
+        const walker = document.createTreeWalker(
+          container,
+          NodeFilter.SHOW_TEXT
+        )
+        let node: Node | null
+        while ((node = walker.nextNode())) {
+          const textNode = node as Text
+          const ranges = findFuzzyRanges(textNode.nodeValue ?? '', query)
+          if (ranges.length === 0) continue
+
+          const range = document.createRange()
+          range.setStart(textNode, ranges[0].start)
+          range.setEnd(textNode, ranges[0].end)
+          const block =
+            textNode.parentElement?.closest(
+              'p, h1, h2, h3, h4, h5, h6, li, pre, blockquote, td, tr'
+            ) ?? textNode.parentElement
+          block?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          return
+        }
       }
     }),
     []
@@ -218,10 +287,12 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
           })
           ctx.set(codeBlockConfig.key, {
             ...defaultConfig,
-            languages,
+            languages: editorLanguages,
             extensions: [syntaxHighlighting(defaultHighlightStyle)],
             copyIcon: '',
             expandIcon: '',
+            searchIcon: '',
+            clearSearchIcon: clearSearchIconSvg,
             previewLabel: '',
             renderPreview: () => null
           })
@@ -233,6 +304,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
         .use(codeBlockComponent)
         .use(trailingPluginNoDirty)
         .use(codeBlockShortcuts)
+        .use(formattingShortcuts)
         .use(upload)
         .use(exitCodeBlockAtEnd)
         .use(headingShortcuts)

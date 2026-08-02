@@ -4,6 +4,9 @@ import appCss from '../styles/app.css?inline'
 import claudeTokensCss from '../styles/claude-tokens.css?inline'
 import { renderMermaidToElement } from './mermaid'
 
+hljs.registerAliases(['mongodb', 'mongo'], { languageName: 'javascript' })
+hljs.registerAliases(['sqlserver', 'mssql', 'tsql'], { languageName: 'sql' })
+
 function headingId(text: string, used: Map<string, number>): string {
   const base =
     text

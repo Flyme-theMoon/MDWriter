@@ -10,11 +10,13 @@ import type {
   DeleteFilePayload,
   DeleteFileResult,
   ExportPdfPayload,
+  GlobalSearchMatch,
   OpenPathResult,
   OpenDirectoryResult,
   ReadFileResult,
   RenameEntryPayload,
   RenameEntryResult,
+  SearchDirectoryPayload,
   SaveFilePayload,
   SaveFileResult
 } from '@shared/types/files'
@@ -31,6 +33,7 @@ declare global {
       }
       openDirectory: () => Promise<OpenDirectoryResult | null>
       readDirectory: (path: string) => Promise<OpenDirectoryResult>
+      searchDirectory: (payload: SearchDirectoryPayload) => Promise<GlobalSearchMatch[]>
       readFile: (path: string) => Promise<ReadFileResult>
       saveFile: (payload: SaveFilePayload) => Promise<SaveFileResult>
       createFile: (payload: CreateFilePayload) => Promise<CreateFileResult>

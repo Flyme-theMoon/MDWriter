@@ -9,7 +9,6 @@ import {
 import {
   Code2,
   Columns2,
-  Copy,
   Eye,
   FileDown,
   FilePlus2,
@@ -17,16 +16,16 @@ import {
   FolderPlus,
   Keyboard,
   ListTree,
-  Minus,
   Moon,
   Save,
-  Square,
+  Search,
   Sun,
   X
 } from 'lucide-react'
 import type { EditorMode } from '@shared/types/document'
 import type {
   FileNode,
+  GlobalSearchMatch,
   OpenDirectoryResult,
   ReadFileResult
 } from '@shared/types/files'
@@ -36,6 +35,10 @@ import { buildOutlineTree, extractOutline } from './markdown/outline'
 import { AppCloseDialog } from './components/AppCloseDialog'
 import { FileDeleteDialog } from './components/FileDeleteDialog'
 import { ImageLightbox } from './components/ImageLightbox'
+import { WindowControls } from './components/WindowControls'
+import { CurrentSearchBar } from './components/search/CurrentSearchBar'
+import { GlobalSearchBar } from './components/sidebar/GlobalSearchBar'
+import { GlobalSearchResults } from './components/sidebar/GlobalSearchResults'
 import {
   PreviewEditor,
   type PreviewEditorHandle
@@ -58,6 +61,7 @@ import { OutlineTree } from './components/sidebar/OutlineTree'
 import { ShortcutDialog } from './components/ShortcutDialog'
 import { UnsavedDialog } from './components/UnsavedDialog'
 import { buildExportHtml } from './markdown/renderer'
+import { findFuzzyRanges } from './search/fuzzy'
 import appIcon from './icon.png'
 
 interface EditorTab {
@@ -121,12 +125,30 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(220)
   const [resizingSidebar, setResizingSidebar] = useState(false)
   const [maximized, setMaximized] = useState(false)
+  const [currentSearchOpen, setCurrentSearchOpen] = useState(false)
+  const [currentSearchQuery, setCurrentSearchQuery] = useState('')
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0)
+  const [currentSearchTotal, setCurrentSearchTotal] = useState(0)
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('')
+  const [globalSearchResults, setGlobalSearchResults] = useState<
+    GlobalSearchMatch[]
+  >([])
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false)
+  const [pendingSearchJump, setPendingSearchJump] =
+    useState<GlobalSearchMatch | null>(null)
   const beforeCloseRef = useRef<() => void>(() => undefined)
   const sourceEditorRef = useRef<SourceEditorHandle>(null)
   const previewEditorRef = useRef<PreviewEditorHandle>(null)
   const splitPreviewRef = useRef<PreviewPaneHandle>(null)
+  const editorAreaRef = useRef<HTMLDivElement>(null)
+  const currentSearchInputRef = useRef<HTMLInputElement>(null)
+  const currentSearchRangesRef = useRef<Range[]>([])
   const nextId = useRef(3)
   const stateSaveTimerRef = useRef<number | null>(null)
+  // macOS uses the native title bar and first-version topbar layout;
+  // Windows/Linux use a hidden title bar and custom WindowControls.
+  const isMac = window.mdwriter?.platform === 'darwin'
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null
   const outlineHeadings = useMemo(
@@ -731,11 +753,37 @@ export default function App() {
         event.preventDefault()
         void saveActiveTab()
       }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault()
+        openCurrentSearch()
+      }
+      if (event.key === 'Escape' && currentSearchOpen) {
+        event.preventDefault()
+        closeCurrentSearch()
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [saveActiveTab])
+  }, [saveActiveTab, currentSearchOpen])
+
+  useEffect(() => {
+    if (!pendingSearchJump) return
+
+    const target = pendingSearchJump
+    setPendingSearchJump(null)
+    requestAnimationFrame(() => {
+      if (mode === 'preview') {
+        previewEditorRef.current?.scrollToText(target.snippet)
+      } else {
+        sourceEditorRef.current?.scrollToLine(target.line)
+      }
+    })
+  }, [pendingSearchJump, mode, activeTab?.id])
+
+  useEffect(() => {
+    closeCurrentSearch()
+  }, [activeTab?.id])
 
   const handleBeforeClose = async (): Promise<void> => {
     if (!window.mdwriter) return
@@ -855,9 +903,294 @@ export default function App() {
     }
   }
 
+  const applyCurrentSearchHighlights = (
+    ranges: Range[],
+    index: number
+  ): void => {
+    const registry = (
+      CSS as unknown as {
+        highlights?: {
+          set: (name: string, value: unknown) => void
+          delete: (name: string) => void
+        }
+      }
+    ).highlights
+    const HighlightCtor = (
+      globalThis as unknown as {
+        Highlight?: new (...ranges: Range[]) => unknown
+      }
+    ).Highlight
+    if (!registry || !HighlightCtor) return
+
+    registry.delete('mdwriter-search')
+    registry.delete('mdwriter-search-current')
+    if (ranges.length === 0) return
+
+    registry.set('mdwriter-search', new HighlightCtor(...ranges))
+    if (index >= 0 && index < ranges.length) {
+      registry.set(
+        'mdwriter-search-current',
+        new HighlightCtor(ranges[index])
+      )
+    }
+  }
+
+  const collectCurrentSearchRanges = (query: string): Range[] => {
+    const root = editorAreaRef.current
+    if (!root || !query.trim()) return []
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement
+        if (
+          parent?.closest(
+            '.cm-gutters, script, style, textarea, select, [data-mermaid-source]'
+          )
+        ) {
+          return NodeFilter.FILTER_REJECT
+        }
+        return NodeFilter.FILTER_ACCEPT
+      }
+    })
+    const ranges: Range[] = []
+    let node: Node | null
+
+    while ((node = walker.nextNode()) && ranges.length < 2000) {
+      const textNode = node as Text
+      for (const match of findFuzzyRanges(textNode.nodeValue ?? '', query)) {
+        const range = document.createRange()
+        range.setStart(textNode, match.start)
+        range.setEnd(textNode, match.end)
+        ranges.push(range)
+        if (ranges.length >= 2000) break
+      }
+    }
+
+    return ranges
+  }
+
+  const jumpToCurrentSearch = (index: number): void => {
+    const ranges = currentSearchRangesRef.current
+    if (ranges.length === 0) {
+      setCurrentSearchIndex(0)
+      applyCurrentSearchHighlights([], -1)
+      return
+    }
+
+    const safeIndex = ((index % ranges.length) + ranges.length) % ranges.length
+    setCurrentSearchIndex(safeIndex)
+    applyCurrentSearchHighlights(ranges, safeIndex)
+
+    const range = ranges[safeIndex]
+    const block =
+      range.startContainer.parentElement?.closest(
+        'p, h1, h2, h3, h4, h5, h6, li, pre, blockquote, td, .cm-line'
+      ) ?? range.startContainer.parentElement
+    block?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  const updateCurrentSearchQuery = (query: string): void => {
+    setCurrentSearchQuery(query)
+    const ranges = collectCurrentSearchRanges(query)
+    currentSearchRangesRef.current = ranges
+    setCurrentSearchTotal(ranges.length)
+    if (ranges.length === 0) {
+      setCurrentSearchIndex(0)
+      applyCurrentSearchHighlights([], -1)
+      return
+    }
+    jumpToCurrentSearch(0)
+  }
+
+  const openCurrentSearch = (): void => {
+    setCurrentSearchOpen(true)
+    requestAnimationFrame(() => currentSearchInputRef.current?.focus())
+  }
+
+  const closeCurrentSearch = (): void => {
+    setCurrentSearchOpen(false)
+    setCurrentSearchQuery('')
+    setCurrentSearchIndex(0)
+    setCurrentSearchTotal(0)
+    currentSearchRangesRef.current = []
+    applyCurrentSearchHighlights([], -1)
+  }
+
+  const moveCurrentSearch = (direction: number): void => {
+    if (currentSearchRangesRef.current.length === 0) return
+    jumpToCurrentSearch(currentSearchIndex + direction)
+  }
+
+  const openGlobalSearch = (): void => {
+    setSidebarMode('files')
+    setGlobalSearchOpen(true)
+    setGlobalSearchQuery('')
+    setGlobalSearchResults([])
+  }
+
+  const closeGlobalSearch = (): void => {
+    setGlobalSearchOpen(false)
+    setGlobalSearchQuery('')
+    setGlobalSearchResults([])
+  }
+
+  const runGlobalSearch = async (query: string): Promise<void> => {
+    const trimmed = query.trim()
+    setGlobalSearchQuery(trimmed)
+    setGlobalSearchResults([])
+    if (!window.mdwriter || !trimmed || workspaces.length === 0) {
+      setGlobalSearchLoading(false)
+      return
+    }
+
+    setGlobalSearchLoading(true)
+    try {
+      const settled = await Promise.all(
+        workspaces.map((workspace) =>
+          window.mdwriter?.searchDirectory({
+            path: workspace.path,
+            query: trimmed
+          })
+        )
+      )
+      const unique = new Map<string, GlobalSearchMatch>()
+      for (const matches of settled) {
+        for (const match of matches ?? []) {
+          unique.set(`${match.path}:${match.line}:${match.start}`, match)
+        }
+      }
+      setGlobalSearchResults(
+        Array.from(unique.values()).sort(
+          (left, right) =>
+            left.path.localeCompare(right.path) || left.line - right.line
+        )
+      )
+    } finally {
+      setGlobalSearchLoading(false)
+    }
+  }
+
+  const openFileByPath = async (path: string): Promise<void> => {
+    const existing = tabs.find((tab) => tab.path === path)
+    if (existing) {
+      setActiveTabId(existing.id)
+      return
+    }
+    if (!window.mdwriter) return
+
+    const file = await window.mdwriter.readFile(path)
+    openReadFile(file)
+  }
+
+  const handleGlobalSearchSelect = async (
+    match: GlobalSearchMatch
+  ): Promise<void> => {
+    await openFileByPath(match.path)
+    setMode('preview')
+    setPendingSearchJump(match)
+  }
+
+  const tabStrip = (
+    <div
+      className="tab-strip"
+      role="tablist"
+      aria-label="打开的文档"
+      onWheel={(event) => {
+        const delta =
+          Math.abs(event.deltaX) > Math.abs(event.deltaY)
+            ? event.deltaX
+            : event.deltaY
+        event.currentTarget.scrollLeft += delta
+      }}
+    >
+      {tabs.map((tab) => (
+        <div
+          className={`tab${tab.id === activeTab?.id ? ' active' : ''}`}
+          key={tab.id}
+          role="tab"
+          aria-selected={tab.id === activeTab?.id}
+          onClick={() => setActiveTabId(tab.id)}
+        >
+          <span>{tab.title}</span>
+          {tab.dirty && <span className="tab-dirty-dot" aria-label="未保存" />}
+          <button
+            className="tab-close"
+            type="button"
+            aria-label={`关闭 ${tab.title}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              requestCloseTab(tab.id)
+            }}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+
+  const topActions = (
+    <div className="top-actions">
+      <button
+        className="icon-button"
+        type="button"
+        data-tooltip="保存"
+        aria-label="保存"
+        onClick={saveActiveTab}
+      >
+        <Save size={16} />
+      </button>
+      <button
+        className="icon-button"
+        type="button"
+        data-tooltip="新建标签页"
+        aria-label="新建标签页"
+        onClick={addTab}
+      >
+        <FilePlus2 size={16} />
+      </button>
+      <button
+        className="icon-button"
+        type="button"
+        data-tooltip="添加文件夹"
+        aria-label="添加文件夹"
+        onClick={openDirectory}
+      >
+        <FolderOpen size={16} />
+      </button>
+      <button
+        className="icon-button"
+        type="button"
+        data-tooltip="导出 PDF"
+        aria-label="导出 PDF"
+        onClick={exportPdf}
+      >
+        <FileDown size={16} />
+      </button>
+      <button
+        className="icon-button"
+        type="button"
+        data-tooltip="快捷键"
+        aria-label="快捷键"
+        onClick={() => setShowShortcuts(true)}
+      >
+        <Keyboard size={16} />
+      </button>
+      <button
+        className="icon-button"
+        type="button"
+        data-tooltip="切换主题"
+        aria-label="切换主题"
+        onClick={() => setDark((value) => !value)}
+      >
+        {dark ? <Sun size={16} /> : <Moon size={16} />}
+      </button>
+    </div>
+  )
+
   return (
     <div
-      className={`app-shell${resizingSidebar ? ' resizing-sidebar' : ''}`}
+      className={`app-shell${resizingSidebar ? ' resizing-sidebar' : ''}${isMac ? ' platform-darwin' : ''}`}
       style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
     >
       <header className="topbar">
@@ -868,33 +1201,17 @@ export default function App() {
             <div className="brand-sub">local markdown</div>
           </div>
         </div>
-        <span className="topbar-spacer" />
-        <div className="window-controls">
-          <button
-            className="window-control-button"
-            type="button"
-            aria-label="最小化"
-            onClick={() => window.mdwriter?.minimizeWindow()}
-          >
-            <Minus size={14} />
-          </button>
-          <button
-            className="window-control-button"
-            type="button"
-            aria-label={maximized ? '还原' : '最大化'}
-            onClick={() => window.mdwriter?.maximizeWindow()}
-          >
-            {maximized ? <Copy size={13} /> : <Square size={12} />}
-          </button>
-          <button
-            className="window-control-button close"
-            type="button"
-            aria-label="关闭"
-            onClick={() => window.mdwriter?.closeWindow()}
-          >
-            <X size={14} />
-          </button>
-        </div>
+        {isMac ? (
+          <>
+            {tabStrip}
+            {topActions}
+          </>
+        ) : (
+          <>
+            <span className="topbar-spacer" />
+            <WindowControls maximized={maximized} />
+          </>
+        )}
       </header>
 
       <aside className="sidebar">
@@ -921,41 +1238,74 @@ export default function App() {
         <div className="sidebar-scroll">
           {sidebarMode === 'files' ? (
             <>
-              <div className="file-header">
-                <span className="file-header-title">文件夹</span>
-                <div className="file-header-actions">
-                  <button
-                    className="file-action-button"
-                    type="button"
-                    data-tooltip="新建 Markdown 文件"
-                    aria-label="新建 Markdown 文件"
-                    disabled={workspaces.length === 0}
-                    onClick={createMarkdownFile}
-                  >
-                    <FilePlus2 size={13} />
-                  </button>
-                  <button
-                    className="file-action-button"
-                    type="button"
-                    data-tooltip="新建文件夹"
-                    aria-label="新建文件夹"
-                    disabled={workspaces.length === 0}
-                    onClick={createFolder}
-                  >
-                    <FolderPlus size={13} />
-                  </button>
-                  <button
-                    className="file-action-button"
-                    type="button"
-                    data-tooltip="添加文件夹"
-                    aria-label="添加文件夹"
-                    onClick={openDirectory}
-                  >
-                    <FolderOpen size={13} />
-                  </button>
+              {globalSearchOpen ? (
+                <GlobalSearchBar
+                  query={globalSearchQuery}
+                  loading={globalSearchLoading}
+                  onQueryChange={setGlobalSearchQuery}
+                  onSearch={(query) => void runGlobalSearch(query)}
+                  onBack={closeGlobalSearch}
+                />
+              ) : (
+                <div className="file-header">
+                  <span className="file-header-title">文件夹</span>
+                  <div className="file-header-actions">
+                    <button
+                      className="file-action-button"
+                      type="button"
+                      data-tooltip="全局搜索"
+                      aria-label="全局搜索"
+                      onClick={openGlobalSearch}
+                    >
+                      <Search size={13} />
+                    </button>
+                    <button
+                      className="file-action-button"
+                      type="button"
+                      data-tooltip="新建 Markdown 文件"
+                      aria-label="新建 Markdown 文件"
+                      disabled={workspaces.length === 0}
+                      onClick={createMarkdownFile}
+                    >
+                      <FilePlus2 size={13} />
+                    </button>
+                    <button
+                      className="file-action-button"
+                      type="button"
+                      data-tooltip="新建文件夹"
+                      aria-label="新建文件夹"
+                      disabled={workspaces.length === 0}
+                      onClick={createFolder}
+                    >
+                      <FolderPlus size={13} />
+                    </button>
+                    <button
+                      className="file-action-button"
+                      type="button"
+                      data-tooltip="添加文件夹"
+                      aria-label="添加文件夹"
+                      onClick={openDirectory}
+                    >
+                      <FolderOpen size={13} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-              {workspaces.length > 0 ? (
+              )}
+              {globalSearchOpen ? (
+                globalSearchLoading ? (
+                  <div className="global-search-state">搜索中...</div>
+                ) : globalSearchResults.length === 0 ? (
+                  <div className="global-search-state">
+                    {globalSearchQuery ? '没有匹配结果' : '输入关键词后回车搜索'}
+                  </div>
+                ) : (
+                  <GlobalSearchResults
+                    results={globalSearchResults}
+                    query={globalSearchQuery}
+                    onSelect={(match) => void handleGlobalSearchSelect(match)}
+                  />
+                )
+              ) : workspaces.length > 0 ? (
                 <FileTree
                   roots={workspaces}
                   activePath={activeTab?.path ?? null}
@@ -1050,101 +1400,27 @@ export default function App() {
               <span>预览编辑</span>
             </button>
           </div>
-          <div
-            className="tab-strip"
-            role="tablist"
-            aria-label="打开的文档"
-            onWheel={(event) => {
-              const delta =
-                Math.abs(event.deltaX) > Math.abs(event.deltaY)
-                  ? event.deltaX
-                  : event.deltaY
-              event.currentTarget.scrollLeft += delta
-            }}
-          >
-            {tabs.map((tab) => (
-              <div
-                className={`tab${tab.id === activeTab?.id ? ' active' : ''}`}
-                key={tab.id}
-                role="tab"
-                aria-selected={tab.id === activeTab?.id}
-                onClick={() => setActiveTabId(tab.id)}
-              >
-                <span>{tab.title}</span>
-                {tab.dirty && <span className="tab-dirty-dot" aria-label="未保存" />}
-                <button
-                  className="tab-close"
-                  type="button"
-                  aria-label={`关闭 ${tab.title}`}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    requestCloseTab(tab.id)
-                  }}
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="top-actions">
-            <button
-              className="icon-button"
-              type="button"
-              data-tooltip="保存"
-              aria-label="保存"
-              onClick={saveActiveTab}
-            >
-              <Save size={16} />
-            </button>
-            <button
-              className="icon-button"
-              type="button"
-              data-tooltip="新建标签页"
-              aria-label="新建标签页"
-              onClick={addTab}
-            >
-              <FilePlus2 size={16} />
-            </button>
-            <button
-              className="icon-button"
-              type="button"
-              data-tooltip="添加文件夹"
-              aria-label="添加文件夹"
-              onClick={openDirectory}
-            >
-              <FolderOpen size={16} />
-            </button>
-            <button
-              className="icon-button"
-              type="button"
-              data-tooltip="导出 PDF"
-              aria-label="导出 PDF"
-              onClick={exportPdf}
-            >
-              <FileDown size={16} />
-            </button>
-            <button
-              className="icon-button"
-              type="button"
-              data-tooltip="快捷键"
-              aria-label="快捷键"
-              onClick={() => setShowShortcuts(true)}
-            >
-              <Keyboard size={16} />
-            </button>
-            <button
-              className="icon-button"
-              type="button"
-              data-tooltip="切换主题"
-              aria-label="切换主题"
-              onClick={() => setDark((value) => !value)}
-            >
-              {dark ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-          </div>
+          {!isMac && (
+            <>
+              {tabStrip}
+              {topActions}
+            </>
+          )}
         </div>
 
-        <div className="editor-area">
+        <div className="editor-area" ref={editorAreaRef}>
+          {currentSearchOpen && (
+            <CurrentSearchBar
+              query={currentSearchQuery}
+              matchIndex={currentSearchIndex}
+              matchTotal={currentSearchTotal}
+              inputRef={currentSearchInputRef}
+              onQueryChange={updateCurrentSearchQuery}
+              onPrev={() => moveCurrentSearch(-1)}
+              onNext={() => moveCurrentSearch(1)}
+              onClose={closeCurrentSearch}
+            />
+          )}
           {!activeTab ? (
             <div className="empty-welcome">
               <div className="empty-welcome-content">

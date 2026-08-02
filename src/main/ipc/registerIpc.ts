@@ -8,7 +8,8 @@ import type {
   DeleteFilePayload,
   ExportPdfPayload,
   RenameEntryPayload,
-  SaveFilePayload
+  SaveFilePayload,
+  SearchDirectoryPayload
 } from '../../shared/types/files'
 import {
   copyFileToDirectory,
@@ -18,7 +19,8 @@ import {
   listDirectory,
   readTextFile,
   renameEntry,
-  saveTextFile
+  saveTextFile,
+  searchDirectory
 } from '../services/fileService'
 import { exportPdf } from '../services/pdfService'
 import { loadAppState, saveAppState } from '../services/appStateService'
@@ -78,6 +80,12 @@ export function registerIpcHandlers(): void {
     name: basename(path),
     tree: await listDirectory(path)
   }))
+
+  ipcMain.handle(
+    'directory:search',
+    async (_event, payload: SearchDirectoryPayload) =>
+      searchDirectory(payload.path, payload.query)
+  )
 
   ipcMain.handle('file:read', async (_event, path: string) => ({
     path,

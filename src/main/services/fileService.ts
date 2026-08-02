@@ -9,10 +9,15 @@ import {
   writeFile
 } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
-import type { FileNode } from '../../shared/types/files'
+import type { FileNode, GlobalSearchMatch } from '../../shared/types/files'
 
 const ignoredDirectories = new Set(['.git', 'node_modules', 'out', 'dist', 'build'])
 const ignoredFiles = new Set(['.DS_Store'])
+const searchableTextExtensions = new Set([
+  '.md',
+  '.markdown'
+])
+const maxGlobalSearchMatches = 500
 
 export async function listDirectory(directory: string, depth = 4): Promise<FileNode[]> {
   if (depth <= 0) return []
@@ -76,6 +81,103 @@ export async function listDirectory(directory: string, depth = 4): Promise<FileN
 
 export async function readTextFile(filePath: string): Promise<string> {
   return readFile(filePath, 'utf8')
+}
+
+function fuzzyMatchRange(
+  text: string,
+  query: string
+): { start: number; end: number } | null {
+  if (!query) return null
+
+  const lowerText = text.toLowerCase()
+  const lowerQuery = query.toLowerCase()
+  let start = -1
+  let queryIndex = 0
+
+  for (let index = 0; index < lowerText.length; index += 1) {
+    if (lowerText[index] !== lowerQuery[queryIndex]) continue
+    if (queryIndex === 0) start = index
+    queryIndex += 1
+    if (queryIndex === lowerQuery.length) {
+      return { start, end: index + 1 }
+    }
+  }
+
+  return null
+}
+
+async function collectSearchMatches(
+  directory: string,
+  query: string,
+  matches: GlobalSearchMatch[]
+): Promise<void> {
+  if (matches.length >= maxGlobalSearchMatches) return
+
+  let entries
+  try {
+    entries = await readdir(directory, { withFileTypes: true })
+  } catch {
+    return
+  }
+
+  for (const entry of entries) {
+    if (
+      matches.length >= maxGlobalSearchMatches ||
+      ignoredDirectories.has(entry.name) ||
+      ignoredFiles.has(entry.name)
+    ) {
+      continue
+    }
+
+    const path = join(directory, entry.name)
+    if (entry.isDirectory()) {
+      await collectSearchMatches(path, query, matches)
+      continue
+    }
+
+    if (!searchableTextExtensions.has(extname(entry.name).toLowerCase())) {
+      continue
+    }
+
+    let content: string
+    try {
+      content = await readFile(path, 'utf8')
+    } catch {
+      continue
+    }
+
+    const lines = content.split(/\r?\n/)
+    for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
+      if (matches.length >= maxGlobalSearchMatches) break
+
+      const lineText = lines[lineNumber]
+      const match = fuzzyMatchRange(lineText, query)
+      if (!match) continue
+
+      const firstVisible = lineText.search(/\S/)
+      if (firstVisible < 0) continue
+      const snippet = lineText.slice(firstVisible)
+      matches.push({
+        path,
+        name: basename(path),
+        line: lineNumber + 1,
+        start: Math.max(0, match.start - firstVisible),
+        end: Math.max(0, match.end - firstVisible),
+        snippet
+      })
+    }
+  }
+}
+
+export async function searchDirectory(
+  directory: string,
+  query: string
+): Promise<GlobalSearchMatch[]> {
+  const matches: GlobalSearchMatch[] = []
+  const normalizedQuery = query.trim()
+  if (!normalizedQuery) return matches
+  await collectSearchMatches(directory, normalizedQuery, matches)
+  return matches
 }
 
 export async function saveTextFile(filePath: string, content: string): Promise<void> {

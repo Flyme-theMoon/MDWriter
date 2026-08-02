@@ -9,11 +9,13 @@ import type {
   DeleteFilePayload,
   DeleteFileResult,
   ExportPdfPayload,
+  GlobalSearchMatch,
   OpenPathResult,
   OpenDirectoryResult,
   ReadFileResult,
   RenameEntryPayload,
   RenameEntryResult,
+  SearchDirectoryPayload,
   SaveFilePayload,
   SaveFileResult
 } from '../shared/types/files'
@@ -30,6 +32,10 @@ const api = {
     ipcRenderer.invoke('directory:open'),
   readDirectory: (path: string): Promise<OpenDirectoryResult> =>
     ipcRenderer.invoke('directory:read', path),
+  searchDirectory: (
+    payload: SearchDirectoryPayload
+  ): Promise<GlobalSearchMatch[]> =>
+    ipcRenderer.invoke('directory:search', payload),
   readFile: (path: string): Promise<ReadFileResult> =>
     ipcRenderer.invoke('file:read', path),
   saveFile: (payload: SaveFilePayload): Promise<SaveFileResult> =>

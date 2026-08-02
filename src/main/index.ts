@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
 import { installCloseGuard, registerIpcHandlers } from './ipc/registerIpc'
+import { getPlatformWindowOptions } from './windowOptions'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -10,7 +11,7 @@ function createWindow(): void {
     minHeight: 640,
     title: 'MDWriter',
     show: false,
-    titleBarStyle: 'hidden',
+    ...getPlatformWindowOptions(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

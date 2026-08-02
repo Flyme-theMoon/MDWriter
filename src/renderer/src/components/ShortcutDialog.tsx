@@ -15,7 +15,21 @@ const shortcutGroups: Array<{ title: string; items: ShortcutItem[] }> = [
     title: '常用',
     items: [
       { keys: 'Ctrl / Cmd + S', label: '保存当前文档' },
+      { keys: 'Ctrl / Cmd + F', label: '搜索当前文档' },
+      { keys: 'Ctrl / Cmd + B', label: '加粗' },
+      { keys: 'Ctrl / Cmd + I', label: '斜体' },
+      { keys: 'Ctrl / Cmd + Shift + `', label: '行内代码' },
+      { keys: 'Ctrl / Cmd + Alt + X', label: '删除线' },
       { keys: 'Ctrl / Cmd + 1-4', label: '设置一级到四级标题' }
+    ]
+  },
+  {
+    title: '列表',
+    items: [
+      { keys: 'Ctrl / Cmd + [', label: '有序列表' },
+      { keys: 'Ctrl / Cmd + ]', label: '无序列表' },
+      { keys: 'Ctrl / Cmd + Shift + [', label: '有序列表（Typora 兼容）' },
+      { keys: 'Ctrl / Cmd + Shift + ]', label: '无序列表（Typora 兼容）' }
     ]
   },
   {

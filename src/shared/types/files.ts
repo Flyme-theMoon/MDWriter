@@ -12,6 +12,20 @@ export interface OpenDirectoryResult {
   tree: FileNode[]
 }
 
+export interface GlobalSearchMatch {
+  path: string
+  name: string
+  line: number
+  start: number
+  end: number
+  snippet: string
+}
+
+export interface SearchDirectoryPayload {
+  path: string
+  query: string
+}
+
 export interface ReadFileResult {
   path: string
   content: string
