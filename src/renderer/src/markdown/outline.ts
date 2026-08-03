@@ -11,6 +11,12 @@ export interface OutlineNode extends OutlineHeading {
   children: OutlineNode[]
 }
 
+interface InlineToken {
+  type?: string
+  text?: string
+  tokens?: InlineToken[]
+}
+
 function headingId(text: string, used: Map<string, number>): string {
   const base =
     text
@@ -25,6 +31,33 @@ function headingId(text: string, used: Map<string, number>): string {
   return count === 0 ? idBase : `${idBase}-${count + 1}`
 }
 
+function inlinePlainText(tokens: InlineToken[] | undefined | null): string {
+  if (!tokens) return ''
+
+  let text = ''
+  for (const token of tokens) {
+    if (token.type === 'image') continue
+    if (token.type === 'escape' || token.type === 'codespan' || token.type === 'text') {
+      text += token.text ?? ''
+    } else if (token.tokens && token.tokens.length > 0) {
+      text += inlinePlainText(token.tokens)
+    } else {
+      text += token.text ?? ''
+    }
+  }
+  return text
+}
+
+function containsImageToken(tokens: InlineToken[] | undefined | null): boolean {
+  if (!tokens) return false
+
+  for (const token of tokens) {
+    if (token.type === 'image') return true
+    if (token.tokens && containsImageToken(token.tokens)) return true
+  }
+  return false
+}
+
 export function extractOutline(markdown: string): OutlineHeading[] {
   const headings: OutlineHeading[] = []
   const usedIds = new Map<string, number>()
@@ -32,10 +65,12 @@ export function extractOutline(markdown: string): OutlineHeading[] {
 
   for (const token of lexer(markdown)) {
     if (token.type === 'heading') {
+      const rawText = token.text.trim() || `H${token.depth}`
+      const plainText = inlinePlainText(token.tokens).trim()
       headings.push({
-        id: headingId(token.text, usedIds),
+        id: headingId(rawText, usedIds),
         level: token.depth,
-        text: token.text.trim() || `H${token.depth}`,
+        text: plainText || (containsImageToken(token.tokens) ? '图片' : rawText),
         line
       })
     }

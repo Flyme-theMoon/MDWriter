@@ -26,10 +26,8 @@ const shortcutGroups: Array<{ title: string; items: ShortcutItem[] }> = [
   {
     title: '列表',
     items: [
-      { keys: 'Ctrl / Cmd + [', label: '有序列表' },
-      { keys: 'Ctrl / Cmd + ]', label: '无序列表' },
-      { keys: 'Ctrl / Cmd + Shift + [', label: '有序列表（Typora 兼容）' },
-      { keys: 'Ctrl / Cmd + Shift + ]', label: '无序列表（Typora 兼容）' }
+      { keys: 'Ctrl / Cmd + Shift + [', label: '有序列表' },
+      { keys: 'Ctrl / Cmd + Shift + ]', label: '无序列表' }
     ]
   },
   {
@@ -38,6 +36,10 @@ const shortcutGroups: Array<{ title: string; items: ShortcutItem[] }> = [
       { keys: 'Ctrl + Shift + K', label: '插入代码块（Windows / Linux）' },
       { keys: 'Cmd + Option + C', label: '插入代码块（macOS）' }
     ]
+  },
+  {
+    title: '表格',
+    items: [{ keys: 'Ctrl / Cmd + Shift + T', label: '插入 1 列 2 行表格' }]
   },
   {
     title: '其他',

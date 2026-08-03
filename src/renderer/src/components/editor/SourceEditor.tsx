@@ -80,6 +80,22 @@ function insertCodeBlock(view: EditorView): boolean {
   return true
 }
 
+function insertTable(view: EditorView): boolean {
+  const { state } = view
+  const insertAt = state.selection.main.to
+  const prefix = insertAt === 0 ? '' : '\n'
+  const insert =
+    `${prefix}| 列 1 |\n| --- |\n|  |\n`
+  const firstBodyCell = insert.indexOf('|  |\n', insert.indexOf('| ---'))
+
+  view.dispatch({
+    changes: { from: insertAt, insert },
+    selection: { anchor: insertAt + firstBodyCell + 2 },
+    scrollIntoView: true
+  })
+  return true
+}
+
 function toggleInlineWrap(
   view: EditorView,
   before: string,
@@ -189,6 +205,17 @@ const codeBlockShortcuts = keymap.of([
   }
 ])
 
+const tableShortcuts = keymap.of([
+  {
+    key: 'Mod-Shift-t',
+    run: insertTable
+  },
+  {
+    key: 'Ctrl-Shift-t',
+    run: insertTable
+  }
+])
+
 const selectLineShortcut = keymap.of([
   {
     key: 'Mod-l',
@@ -214,12 +241,8 @@ const formattingShortcuts = keymap.of([
   { key: 'Ctrl-Shift-`', run: toggleInlineCode },
   { key: 'Mod-Alt-x', run: toggleStrikethrough },
   { key: 'Ctrl-Alt-x', run: toggleStrikethrough },
-  { key: 'Mod-[', run: toggleOrderedList },
-  { key: 'Mod-]', run: toggleBulletList },
   { key: 'Mod-Shift-[', run: toggleOrderedList },
   { key: 'Mod-Shift-]', run: toggleBulletList },
-  { key: 'Ctrl-[', run: toggleOrderedList },
-  { key: 'Ctrl-]', run: toggleBulletList },
   { key: 'Ctrl-Shift-[', run: toggleOrderedList },
   { key: 'Ctrl-Shift-]', run: toggleBulletList }
 ])
@@ -230,6 +253,7 @@ const markdownExtensions = [
   drawSelection(),
   headingShortcuts,
   codeBlockShortcuts,
+  tableShortcuts,
   selectLineShortcut,
   formattingShortcuts
 ]

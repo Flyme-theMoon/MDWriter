@@ -1432,6 +1432,17 @@ html.dark .milkdown-host {
   font-size: 0.88em;
 }
 
+.markdown-preview :not(pre) > code,
+.milkdown :not(pre) > code {
+  padding: 0.14em 0.38em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--muted);
+  color: var(--foreground);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .markdown-preview .hljs,
 .milkdown .hljs {
   color: var(--foreground);
@@ -1516,9 +1527,11 @@ html.dark .milkdown-host {
 .markdown-preview td,
 .milkdown th,
 .milkdown td {
+  min-width: 120px;
   padding: 8px 10px;
   border: 1px solid var(--border);
   text-align: left;
+  word-break: break-word;
   overflow-wrap: anywhere;
 }
 
@@ -1720,6 +1733,108 @@ html.dark .milkdown-host {
 .table-toolbar button:hover {
   background: var(--muted);
   color: var(--primary);
+}
+
+.format-bubble {
+  position: absolute;
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: calc(100% - 16px);
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--popover);
+  box-shadow: var(--shadow-md);
+}
+
+.format-bubble button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.format-bubble button:hover {
+  background: var(--muted);
+  color: var(--primary);
+}
+
+.format-bubble button::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--popover);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+}
+
+.format-bubble button:hover::after {
+  opacity: 1;
+}
+
+.format-bubble-separator {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--border);
+}
+
+.copy-success-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 44px;
+  z-index: 400;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--popover);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  box-shadow: var(--shadow-lg);
+  animation: copy-toast-in 0.12s ease;
+}
+
+.copy-success-toast svg {
+  color: var(--success);
+}
+
+@keyframes copy-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .milkdown .ProseMirror {

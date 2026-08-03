@@ -168,6 +168,8 @@ interface FileContextMenuState {
 interface CopiedMarkdown {
   sourcePath: string
   name: string
+  kind: 'file' | 'folder'
+  action: 'copy' | 'cut'
 }
 
 interface DeleteFileTarget {
@@ -183,6 +185,15 @@ function parentDirectory(filePath: string): string {
   )
   if (separator < 0) return filePath
   return filePath.slice(0, separator) || '/'
+}
+
+function isInsideOrEqual(childPath: string, parentPath: string): boolean {
+  const normalizedChild = childPath.replace(/\\/g, '/').replace(/\/+$/, '')
+  const normalizedParent = parentPath.replace(/\\/g, '/').replace(/\/+$/, '')
+  return (
+    normalizedChild === normalizedParent ||
+    normalizedChild.startsWith(`${normalizedParent}/`)
+  )
 }
 
 const initialTabs: EditorTab[] = []
@@ -503,6 +514,16 @@ export default function App() {
     preview: '预览编辑'
   }[mode]
 
+  const canPaste =
+    copiedFile !== null &&
+    contextMenu !== null &&
+    !isInsideOrEqual(
+      contextMenu.kind === 'file'
+        ? contextMenu.directoryPath
+        : contextMenu.path,
+      copiedFile.sourcePath
+    )
+
   const openDirectory = async (): Promise<void> => {
     const result = await window.mdwriter?.openDirectory()
     if (result) {
@@ -642,14 +663,17 @@ export default function App() {
           directoryPath: entry.directoryPath,
           name
         })
-        // Create images/ subdirectory for the new folder
-        try {
-          await window.mdwriter.createDirectory({
-            directoryPath: result.path,
-            name: 'images'
-          })
-        } catch {
-          // Non-critical; image saving will handle missing images/ gracefully
+        const folderName = result.path.split(/[\\/]/).pop()?.toLowerCase()
+        if (folderName !== 'images') {
+          // Create images/ subdirectory for regular content folders.
+          try {
+            await window.mdwriter.createDirectory({
+              directoryPath: result.path,
+              name: 'images'
+            })
+          } catch {
+            // Non-critical; image saving will handle missing images/ gracefully
+          }
         }
         await refreshWorkspaces()
       }
@@ -721,6 +745,56 @@ export default function App() {
     })
   }
 
+  const rebasePathsForMove = (
+    oldPath: string,
+    newPath: string,
+    kind: 'file' | 'folder'
+  ): void => {
+    setTabs((current) =>
+      current.map((tab) => {
+        if (tab.path === oldPath) {
+          return {
+            ...tab,
+            path: newPath,
+            title: newPath.split(/[\\/]/).pop() ?? tab.title
+          }
+        }
+
+        if (kind === 'folder') {
+          const separator = oldPath.includes('\\') ? '\\' : '/'
+          const prefix = oldPath.endsWith(separator)
+            ? oldPath
+            : `${oldPath}${separator}`
+          if (tab.path?.startsWith(prefix)) {
+            const nextPath = `${newPath}${tab.path.slice(prefix.length)}`
+            return {
+              ...tab,
+              path: nextPath,
+              title: nextPath.split(/[\\/]/).pop() ?? tab.title
+            }
+          }
+        }
+
+        return tab
+      })
+    )
+
+    setSelectedFolderPath((current) => {
+      if (!current) return current
+      if (current === oldPath) return newPath
+      if (kind === 'folder') {
+        const separator = oldPath.includes('\\') ? '\\' : '/'
+        const prefix = oldPath.endsWith(separator)
+          ? oldPath
+          : `${oldPath}${separator}`
+        if (current.startsWith(prefix)) {
+          return `${newPath}${current.slice(prefix.length)}`
+        }
+      }
+      return current
+    })
+  }
+
   const handleRenameEntry = async (name: string): Promise<void> => {
     if (!pendingRename || !window.mdwriter) return
 
@@ -742,50 +816,7 @@ export default function App() {
         )
       }
       await refreshWorkspaces(rootsToRefresh)
-
-      setTabs((current) =>
-        current.map((tab) => {
-          if (tab.path === oldPath) {
-            return {
-              ...tab,
-              path: result.path,
-              title: result.name
-            }
-          }
-
-          if (entry.kind === 'folder') {
-            const separator = oldPath.includes('\\') ? '\\' : '/'
-            const prefix = oldPath.endsWith(separator)
-              ? oldPath
-              : `${oldPath}${separator}`
-            if (tab.path?.startsWith(prefix)) {
-              const nextPath = `${result.path}${tab.path.slice(prefix.length)}`
-              return {
-                ...tab,
-                path: nextPath,
-                title: nextPath.split(/[\\/]/).pop() ?? tab.title
-              }
-            }
-          }
-
-          return tab
-        })
-      )
-
-      setSelectedFolderPath((current) => {
-        if (!current) return current
-        if (current === oldPath) return result.path
-        if (entry.kind === 'folder') {
-          const separator = oldPath.includes('\\') ? '\\' : '/'
-          const prefix = oldPath.endsWith(separator)
-            ? oldPath
-            : `${oldPath}${separator}`
-          if (current.startsWith(prefix)) {
-            return `${result.path}${current.slice(prefix.length)}`
-          }
-        }
-        return current
-      })
+      rebasePathsForMove(oldPath, result.path, entry.kind)
     } catch {
       setPendingRename(entry)
     }
@@ -797,10 +828,22 @@ export default function App() {
   }
 
   const handleContextCopyFile = (): void => {
-    if (!contextMenu || contextMenu.kind !== 'file') return
+    if (!contextMenu) return
     setCopiedFile({
       sourcePath: contextMenu.path,
-      name: contextMenu.name
+      name: contextMenu.name,
+      kind: contextMenu.kind,
+      action: 'copy'
+    })
+  }
+
+  const handleContextCutFile = (): void => {
+    if (!contextMenu) return
+    setCopiedFile({
+      sourcePath: contextMenu.path,
+      name: contextMenu.name,
+      kind: contextMenu.kind,
+      action: 'cut'
     })
   }
 
@@ -811,10 +854,27 @@ export default function App() {
         ? contextMenu.directoryPath
         : contextMenu.path
 
-    await window.mdwriter.copyFile({
-      sourcePath: copiedFile.sourcePath,
-      destinationDirectory
-    })
+    if (isInsideOrEqual(destinationDirectory, copiedFile.sourcePath)) {
+      return
+    }
+
+    if (copiedFile.action === 'cut') {
+      const result = await window.mdwriter.cutFile({
+        sourcePath: copiedFile.sourcePath,
+        destinationDirectory
+      })
+      rebasePathsForMove(
+        copiedFile.sourcePath,
+        result.path,
+        copiedFile.kind
+      )
+      setCopiedFile(null)
+    } else {
+      await window.mdwriter.copyFile({
+        sourcePath: copiedFile.sourcePath,
+        destinationDirectory
+      })
+    }
     await refreshWorkspaces()
   }
 
@@ -1711,11 +1771,12 @@ export default function App() {
           y={contextMenu.y}
           kind={contextMenu.kind}
           isRoot={contextMenu.isRoot}
-          canPaste={Boolean(copiedFile)}
+          canPaste={canPaste}
           onNewFile={handleContextNewFile}
           onNewFolder={handleContextNewFolder}
           onRename={handleContextRename}
           onCopyFile={handleContextCopyFile}
+          onCutFile={handleContextCutFile}
           onPaste={() => void handleContextPaste()}
           onDeleteFile={handleContextDeleteFile}
           onRemoveRoot={handleContextRemoveRoot}

@@ -7,6 +7,8 @@ import type {
   CreateFileResult,
   CopyFilePayload,
   CopyFileResult,
+  CutFilePayload,
+  CutFileResult,
   DeleteFilePayload,
   DeleteFileResult,
   ExportPdfPayload,
@@ -65,6 +67,8 @@ const api = {
     ipcRenderer.invoke('directory:create', payload),
   copyFile: (payload: CopyFilePayload): Promise<CopyFileResult> =>
     ipcRenderer.invoke('file:copy', payload),
+  cutFile: (payload: CutFilePayload): Promise<CutFileResult> =>
+    ipcRenderer.invoke('file:cut', payload),
   renameEntry: (payload: RenameEntryPayload): Promise<RenameEntryResult> =>
     ipcRenderer.invoke('file:rename', payload),
   deleteFile: (payload: DeleteFilePayload): Promise<DeleteFileResult> =>

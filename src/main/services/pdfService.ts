@@ -39,7 +39,9 @@ export async function exportPdf(
     const pdf = await printWindow.webContents.printToPDF({
       printBackground: true,
       pageSize: 'A4',
-      preferCSSPageSize: true
+      preferCSSPageSize: true,
+      generateDocumentOutline: true,
+      generateTaggedPDF: true
     })
     await writeFile(filePath, pdf)
     return { canceled: false, path: filePath }

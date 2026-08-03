@@ -1,10 +1,26 @@
 import { syntaxHighlighting } from '@codemirror/language'
-import { Columns3, Rows3 } from 'lucide-react'
+import { keymap as cmKeymap } from '@codemirror/view'
+import {
+  Bold,
+  Check,
+  ClipboardCopy,
+  ClipboardPaste,
+  Code2,
+  Columns3,
+  Italic,
+  List,
+  ListOrdered,
+  Rows3,
+  Scissors,
+  Strikethrough
+} from 'lucide-react'
 import { editorLanguages } from '../../editor/languages'
 import {
   commandsCtx,
+  editorViewCtx,
   Editor,
   rootCtx,
+  schemaCtx,
   defaultValueCtx,
   type CmdKey
 } from '@milkdown/core'
@@ -15,15 +31,32 @@ import {
 } from '@milkdown/components/code-block'
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
-import { upload, uploadConfig } from '@milkdown/plugin-upload'
+import { uploadConfig } from '@milkdown/plugin-upload'
 import { keymap } from '@milkdown/prose/keymap'
+import {
+  Fragment,
+  type Node as ProseNode,
+  type ResolvedPos
+} from '@milkdown/prose/model'
+import {
+  cellAround,
+  deleteColumn,
+  deleteRow,
+  isInTable,
+  selectedRect
+} from '@milkdown/prose/tables'
 import {
   Plugin,
   PluginKey,
   TextSelection,
-  type Command
+  type Command,
+  type EditorState
 } from '@milkdown/prose/state'
-import { Decoration } from '@milkdown/prose/view'
+import {
+  Decoration,
+  DecorationSet,
+  type EditorView
+} from '@milkdown/prose/view'
 import {
   commonmark,
   createCodeBlockCommand,
@@ -37,10 +70,11 @@ import {
   addColAfterCommand,
   addRowAfterCommand,
   gfm,
+  insertTableCommand,
   toggleStrikethroughCommand
 } from '@milkdown/preset-gfm'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
-import { $prose } from '@milkdown/utils'
+import { $prose, $useKeymap } from '@milkdown/utils'
 import {
   useEffect,
   forwardRef,
@@ -183,9 +217,48 @@ const codeBlockShortcuts = $prose((ctx) =>
   })
 )
 
+const tableShortcuts = $prose((ctx) =>
+  keymap({
+    'Mod-Shift-t': () =>
+      ctx.get(commandsCtx).call(insertTableCommand.key, { row: 2, col: 1 }),
+    'Ctrl-Shift-t': () =>
+      ctx.get(commandsCtx).call(insertTableCommand.key, { row: 2, col: 1 })
+  })
+)
+
+const selectCurrentTableCellShortcut = $useKeymap(
+  'selectCurrentTableCellShortcut',
+  {
+    SelectCurrentTableCell: {
+      priority: 100,
+      shortcuts: 'Mod-a',
+      command: () => (state, dispatch) => {
+        const $cell = cellAround(state.selection.$head)
+        const cell = $cell?.nodeAfter
+        if (!$cell || !cell) return false
+
+        const paragraph = cell.firstChild
+        if (!paragraph) return false
+
+        const from = $cell.pos + 2
+        const to = $cell.pos + paragraph.nodeSize
+        dispatch?.(
+          state.tr.setSelection(TextSelection.create(state.doc, from, to))
+        )
+        return true
+      }
+    }
+  }
+)
+
 const formattingShortcuts = $prose((ctx) => {
-  const runCommand = (key: CmdKey<unknown>) => (): boolean =>
-    ctx.get(commandsCtx).call(key)
+  const runCommand = (
+    key: CmdKey<unknown>,
+    tableSafe = true
+  ) => (state: Parameters<Command>[0]): boolean => {
+    if (!tableSafe && isInTable(state)) return false
+    return ctx.get(commandsCtx).call(key)
+  }
 
   return keymap({
     'Mod-b': runCommand(toggleStrongCommand.key),
@@ -196,19 +269,220 @@ const formattingShortcuts = $prose((ctx) => {
     'Ctrl-Shift-`': runCommand(toggleInlineCodeCommand.key),
     'Mod-Alt-x': runCommand(toggleStrikethroughCommand.key),
     'Ctrl-Alt-x': runCommand(toggleStrikethroughCommand.key),
-    'Mod-[': runCommand(wrapInOrderedListCommand.key),
-    'Mod-]': runCommand(wrapInBulletListCommand.key),
-    'Mod-Shift-[': runCommand(wrapInOrderedListCommand.key),
-    'Mod-Shift-]': runCommand(wrapInBulletListCommand.key),
-    'Ctrl-[': runCommand(wrapInOrderedListCommand.key),
-    'Ctrl-]': runCommand(wrapInBulletListCommand.key),
-    'Ctrl-Shift-[': runCommand(wrapInOrderedListCommand.key),
-    'Ctrl-Shift-]': runCommand(wrapInBulletListCommand.key)
+    'Mod-Shift-[': runCommand(wrapInOrderedListCommand.key, false),
+    'Mod-Shift-]': runCommand(wrapInBulletListCommand.key, false),
+    'Ctrl-Shift-[': runCommand(wrapInOrderedListCommand.key, false),
+    'Ctrl-Shift-]': runCommand(wrapInBulletListCommand.key, false)
   })
 })
 
 const clearSearchIconSvg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+
+const copyIconSvg =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
+
+const codeBlockSelectAllKeymap = cmKeymap.of([
+  {
+    key: 'Mod-a',
+    run: (view) => {
+      view.dispatch({
+        selection: { anchor: 0, head: view.state.doc.length }
+      })
+      return true
+    }
+  }
+])
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      // Fall through to execCommand for restricted environments.
+    }
+  }
+
+  const textarea = document.createElement('textarea')
+  const selection = document.getSelection()
+  const originalRange =
+    selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  const copied = document.execCommand('copy')
+  textarea.remove()
+  if (selection && originalRange) {
+    selection.removeAllRanges()
+    selection.addRange(originalRange)
+  }
+  return copied
+}
+
+async function readClipboardText(): Promise<string> {
+  if (!navigator.clipboard?.readText) return ''
+  try {
+    return await navigator.clipboard.readText()
+  } catch {
+    return ''
+  }
+}
+
+interface UploadPlaceholderSpec {
+  id: symbol
+  pos: number
+}
+
+const imageUploadPlugin = $prose((ctx) => {
+  const pluginKey = new PluginKey('MDWRITER_IMAGE_UPLOAD')
+
+  const findPlaceholder = (state: EditorState, id: symbol): number => {
+    const decorations = pluginKey.getState(state)
+    if (!decorations) return -1
+    const found = decorations.find(
+      undefined,
+      undefined,
+      (spec: UploadPlaceholderSpec) => spec.id === id
+    )
+    if (!found.length) return -1
+    return found[0]?.from ?? -1
+  }
+
+  const findBlockDepth = ($pos: ResolvedPos, typeName: string): number => {
+    for (let depth = $pos.depth; depth > 0; depth -= 1) {
+      if ($pos.node(depth).type.name === typeName) return depth
+    }
+    return -1
+  }
+
+  const normalizeResult = (
+    result: Fragment | ProseNode | ProseNode[]
+  ): Fragment => {
+    if (result instanceof Fragment) return result
+    if (Array.isArray(result)) {
+      return Fragment.from(
+        result.filter((node): node is ProseNode => Boolean(node))
+      )
+    }
+    return Fragment.from(result)
+  }
+
+  const handleUpload = (
+    view: EditorView,
+    event: DragEvent | ClipboardEvent,
+    files: FileList | undefined
+  ): boolean => {
+    if (!files || files.length <= 0) return false
+
+    const id = Symbol('mdwriter image upload')
+    const schema = ctx.get(schemaCtx)
+    const { uploader, getInsertPos, uploadWidgetFactory } =
+      ctx.get(uploadConfig.key)
+    const defaultInsertPos =
+      event instanceof DragEvent
+        ? (view.posAtCoords({ left: event.clientX, top: event.clientY })
+            ?.pos ?? view.state.selection.from)
+        : view.state.selection.from
+    const insertPos =
+      typeof getInsertPos === 'function'
+        ? getInsertPos(event, ctx, defaultInsertPos)
+        : defaultInsertPos
+
+    view.dispatch(view.state.tr.setMeta(pluginKey, { add: { id, pos: insertPos } }))
+
+    uploader(files, schema, ctx, insertPos)
+      .then((result) => {
+        const pos = findPlaceholder(view.state, id)
+        if (pos < 0) return
+
+        const fragment = normalizeResult(result)
+        const resolved = view.state.doc.resolve(pos)
+        const headingDepth = findBlockDepth(resolved, 'heading')
+        const codeBlockDepth = findBlockDepth(resolved, 'code_block')
+        const blockDepth =
+          headingDepth >= 0 ? headingDepth : codeBlockDepth
+
+        const tr = view.state.tr.setMeta(pluginKey, { remove: { id } })
+        let selectionPos: number
+
+        if (blockDepth >= 0) {
+          const paragraphType = schema.nodes.paragraph
+          if (!paragraphType) return
+          const afterBlock = resolved.after(blockDepth)
+          const paragraph = paragraphType.create(null, fragment)
+          tr.insert(afterBlock, paragraph)
+          selectionPos = afterBlock + paragraph.nodeSize - 1
+        } else {
+          tr.replaceWith(pos, pos, fragment)
+          selectionPos = pos + fragment.size
+        }
+
+        tr.setSelection(TextSelection.create(tr.doc, selectionPos, selectionPos))
+        view.dispatch(tr)
+      })
+      .catch((error) => {
+        console.error('[image upload]', error)
+      })
+
+    return true
+  }
+
+  return new Plugin({
+    key: pluginKey,
+    state: {
+      init() {
+        return DecorationSet.empty
+      },
+      apply(this: Plugin, tr, set) {
+        const next = set.map(tr.mapping, tr.doc)
+        const action = tr.getMeta(this)
+        if (!action) return next
+
+        if (action.add) {
+          const { uploadWidgetFactory } = ctx.get(uploadConfig.key)
+          const decoration = uploadWidgetFactory(action.add.pos, {
+            id: action.add.id
+          })
+          return next.add(tr.doc, [decoration])
+        }
+        if (action.remove) {
+          const target = next.find(
+            undefined,
+            undefined,
+            (spec: UploadPlaceholderSpec) => spec.id === action.remove.id
+          )
+          return next.remove(target)
+        }
+
+        return next
+      }
+    },
+    props: {
+      decorations(this: Plugin, state: EditorState) {
+        return this.getState(state)
+      },
+      handlePaste: (view, event) => {
+        if (!(event instanceof ClipboardEvent)) return false
+        const { enableHtmlFileUploader } = ctx.get(uploadConfig.key)
+        if (
+          !enableHtmlFileUploader &&
+          event.clipboardData?.getData('text/html')
+        ) {
+          return false
+        }
+        return handleUpload(view, event, event.clipboardData?.files)
+      },
+      handleDrop: (view, event) => {
+        if (!(event instanceof DragEvent)) return false
+        return handleUpload(view, event, event.dataTransfer?.files)
+      }
+    }
+  })
+})
 
 const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
   function MilkdownInstance({ value, onChange, onImagePreview, filePath, dark = false }, ref) {
@@ -219,6 +493,14 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
     left: number
     top: number
   } | null>(null)
+  const [formatBubble, setFormatBubble] = useState<{
+    left: number
+    top: number
+    inTable: boolean
+  } | null>(null)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const tableToolbarTimerRef = useRef<number | null>(null)
+  const codeCopyTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -231,6 +513,50 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
         void rerenderMermaidElement(element, dark)
       })
   }, [dark])
+
+  useEffect(
+    () => () => {
+      if (tableToolbarTimerRef.current !== null) {
+        window.clearTimeout(tableToolbarTimerRef.current)
+      }
+      if (codeCopyTimerRef.current !== null) {
+        window.clearTimeout(codeCopyTimerRef.current)
+      }
+    },
+    []
+  )
+
+  const hideTableToolbar = (): void => {
+    if (tableToolbarTimerRef.current !== null) {
+      window.clearTimeout(tableToolbarTimerRef.current)
+      tableToolbarTimerRef.current = null
+    }
+    setTableToolbar(null)
+  }
+
+  const showTableToolbar = (cell: HTMLElement, host: HTMLElement): void => {
+    const hostRect = host.getBoundingClientRect()
+    const cellRect = cell.getBoundingClientRect()
+    const toolbarWidth = 240
+    setTableToolbar({
+      left: Math.min(
+        Math.max(8, cellRect.left - hostRect.left + host.scrollLeft + 8),
+        Math.max(8, host.clientWidth - toolbarWidth - 8)
+      ),
+      top: Math.max(
+        8,
+        cellRect.top - hostRect.top + host.scrollTop - 42
+      )
+    })
+
+    if (tableToolbarTimerRef.current !== null) {
+      window.clearTimeout(tableToolbarTimerRef.current)
+    }
+    tableToolbarTimerRef.current = window.setTimeout(() => {
+      setTableToolbar(null)
+      tableToolbarTimerRef.current = null
+    }, 2000)
+  }
 
   useImperativeHandle(
     ref,
@@ -309,8 +635,22 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
           ctx.set(codeBlockConfig.key, {
             ...defaultConfig,
             languages: editorLanguages,
-            extensions: [syntaxHighlighting(vscodeHighlightStyle)],
-            copyIcon: '',
+            extensions: [
+              syntaxHighlighting(vscodeHighlightStyle),
+              codeBlockSelectAllKeymap
+            ],
+            copyText: '复制',
+            copyIcon: copyIconSvg,
+            onCopy: () => {
+              setCodeCopied(true)
+              if (codeCopyTimerRef.current !== null) {
+                window.clearTimeout(codeCopyTimerRef.current)
+              }
+              codeCopyTimerRef.current = window.setTimeout(() => {
+                setCodeCopied(false)
+                codeCopyTimerRef.current = null
+              }, 1400)
+            },
             expandIcon: '',
             searchIcon: '',
             clearSearchIcon: clearSearchIconSvg,
@@ -479,8 +819,11 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
         .use(codeBlockComponent)
         .use(trailingPluginNoDirty)
         .use(codeBlockShortcuts)
+        .use(tableShortcuts)
+        .use(selectCurrentTableCellShortcut)
         .use(formattingShortcuts)
-        .use(upload)
+        .use(uploadConfig)
+        .use(imageUploadPlugin)
         .use(exitCodeBlockAtEnd)
         .use(headingShortcuts)
         .use(selectLineShortcut)
@@ -496,32 +839,126 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
     const container = containerRef.current
     if (!container) return
 
-    const cell = (event.target as HTMLElement).closest('td, th')
-    if (!cell) {
-      setTableToolbar(null)
+    const cell = (event.target as HTMLElement).closest(
+      'td, th'
+    ) as HTMLElement | null
+    const selection = window.getSelection()
+    const hasSelection =
+      selection !== null &&
+      !selection.isCollapsed &&
+      selection.rangeCount > 0 &&
+      container.contains(selection.anchorNode) &&
+      container.contains(selection.focusNode)
+    const range = hasSelection ? selection?.getRangeAt(0) : null
+    const rect = range?.getBoundingClientRect()
+    const hasVisibleSelection =
+      Boolean(range && rect) && (rect?.width ?? 0) + (rect?.height ?? 0) > 0
+
+    const showFormatBubble = (inTable: boolean): void => {
+      if (!range || !rect) return
+
+      const hostRect = container.getBoundingClientRect()
+      const bubbleWidth = inTable ? 240 : 300
+      const left = Math.min(
+        Math.max(
+          8,
+          rect.left -
+            hostRect.left +
+            container.scrollLeft +
+            rect.width / 2 -
+            bubbleWidth / 2
+        ),
+        Math.max(8, container.clientWidth - bubbleWidth - 8)
+      )
+      setFormatBubble({
+        left,
+        top: Math.max(
+          8,
+          rect.top - hostRect.top + container.scrollTop - 42
+        ),
+        inTable
+      })
+    }
+
+    if (cell) {
+      if (hasVisibleSelection) {
+        hideTableToolbar()
+        showFormatBubble(true)
+      } else {
+        setFormatBubble(null)
+        showTableToolbar(cell, container)
+      }
       return
     }
 
-    const hostRect = container.getBoundingClientRect()
-    const cellRect = cell.getBoundingClientRect()
-    setTableToolbar({
-      left: Math.max(
-        8,
-        cellRect.left - hostRect.left + container.scrollLeft + 8
-      ),
-      top: Math.max(
-        8,
-        cellRect.top - hostRect.top + container.scrollTop - 42
-      )
-    })
+    hideTableToolbar()
+    if (hasVisibleSelection) {
+      showFormatBubble(false)
+    } else {
+      setFormatBubble(null)
+    }
   }
 
-  const runTableCommand = (commandKey: CmdKey<unknown>): void => {
+  const runEditorCommand = (commandKey: CmdKey<unknown>): void => {
     const editor = get()
     if (!editor) return
     editor.action((ctx) => {
       ctx.get(commandsCtx).call(commandKey)
     })
+    hideTableToolbar()
+    setFormatBubble(null)
+  }
+
+  const runClipboardAction = (
+    action: 'copy' | 'cut' | 'paste'
+  ): void => {
+    const editor = get()
+    if (!editor) return
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const { from, to } = view.state.selection
+      const text = view.state.doc.textBetween(from, to, '\n')
+
+      if (action === 'copy') {
+        void copyTextToClipboard(text)
+      } else if (action === 'cut') {
+        void (async () => {
+          if (text) await copyTextToClipboard(text)
+          view.dispatch(view.state.tr.deleteSelection())
+        })()
+      } else {
+        void (async () => {
+          const clipboardText = await readClipboardText()
+          if (!clipboardText) return
+          view.focus()
+          view.dispatch(view.state.tr.insertText(clipboardText))
+        })()
+      }
+    })
+    hideTableToolbar()
+    setFormatBubble(null)
+  }
+
+  const runTableStructureCommand = (
+    action: 'delete-row' | 'delete-col'
+  ): void => {
+    const editor = get()
+    if (!editor) return
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const rect = selectedRect(view.state)
+      if (action === 'delete-row') {
+        const remainingRows = rect.map.height - (rect.bottom - rect.top)
+        if (rect.top === 0 || remainingRows < 2) return
+        deleteRow(view.state, view.dispatch)
+      } else {
+        const remainingCols = rect.map.width - (rect.right - rect.left)
+        if (remainingCols < 1) return
+        deleteColumn(view.state, view.dispatch)
+      }
+    })
+    hideTableToolbar()
+    setFormatBubble(null)
   }
 
   return (
@@ -531,9 +968,106 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
       onDoubleClick={handleDoubleClick}
       onMouseUp={handleEditorInteraction}
       onKeyUp={handleEditorInteraction}
-      onScroll={() => setTableToolbar(null)}
+      onScroll={() => {
+        hideTableToolbar()
+        setFormatBubble(null)
+      }}
     >
       <Milkdown />
+      {codeCopied && (
+        <div className="copy-success-toast" role="status">
+          <Check size={14} />
+          <span>复制成功</span>
+        </div>
+      )}
+      {formatBubble && (
+        <div
+          className="format-bubble"
+          style={{ left: formatBubble.left, top: formatBubble.top }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onMouseUp={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            data-tooltip="复制"
+            aria-label="复制"
+            onClick={() => runClipboardAction('copy')}
+          >
+            <ClipboardCopy size={14} />
+          </button>
+          <button
+            type="button"
+            data-tooltip="粘贴"
+            aria-label="粘贴"
+            onClick={() => runClipboardAction('paste')}
+          >
+            <ClipboardPaste size={14} />
+          </button>
+          <button
+            type="button"
+            data-tooltip="剪切"
+            aria-label="剪切"
+            onClick={() => runClipboardAction('cut')}
+          >
+            <Scissors size={14} />
+          </button>
+          <span className="format-bubble-separator" />
+          <button
+            type="button"
+            data-tooltip="加粗"
+            aria-label="加粗"
+            onClick={() => runEditorCommand(toggleStrongCommand.key)}
+          >
+            <Bold size={14} />
+          </button>
+          <button
+            type="button"
+            data-tooltip="斜体"
+            aria-label="斜体"
+            onClick={() => runEditorCommand(toggleEmphasisCommand.key)}
+          >
+            <Italic size={14} />
+          </button>
+          <button
+            type="button"
+            data-tooltip="删除线"
+            aria-label="删除线"
+            onClick={() => runEditorCommand(toggleStrikethroughCommand.key)}
+          >
+            <Strikethrough size={14} />
+          </button>
+          <button
+            type="button"
+            data-tooltip="行内代码"
+            aria-label="行内代码"
+            onClick={() => runEditorCommand(toggleInlineCodeCommand.key)}
+          >
+            <Code2 size={14} />
+          </button>
+          {!formatBubble.inTable && (
+            <>
+              <span className="format-bubble-separator" />
+              <button
+                type="button"
+                data-tooltip="无序列表"
+                aria-label="无序列表"
+                onClick={() => runEditorCommand(wrapInBulletListCommand.key)}
+              >
+                <List size={14} />
+              </button>
+              <button
+                type="button"
+                data-tooltip="有序列表"
+                aria-label="有序列表"
+                onClick={() => runEditorCommand(wrapInOrderedListCommand.key)}
+              >
+                <ListOrdered size={14} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {tableToolbar && (
         <div
           className="table-toolbar"
@@ -546,7 +1080,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
             type="button"
             data-tooltip="在下方增加一行"
             aria-label="在下方增加一行"
-            onClick={() => runTableCommand(addRowAfterCommand.key)}
+            onClick={() => runEditorCommand(addRowAfterCommand.key)}
           >
             <Rows3 size={14} />
             <span>加行</span>
@@ -555,10 +1089,28 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
             type="button"
             data-tooltip="在右侧增加一列"
             aria-label="在右侧增加一列"
-            onClick={() => runTableCommand(addColAfterCommand.key)}
+            onClick={() => runEditorCommand(addColAfterCommand.key)}
           >
             <Columns3 size={14} />
             <span>加列</span>
+          </button>
+          <button
+            type="button"
+            data-tooltip="删除选中行"
+            aria-label="删除选中行"
+            onClick={() => runTableStructureCommand('delete-row')}
+          >
+            <Rows3 size={14} />
+            <span>删行</span>
+          </button>
+          <button
+            type="button"
+            data-tooltip="删除选中列"
+            aria-label="删除选中列"
+            onClick={() => runTableStructureCommand('delete-col')}
+          >
+            <Columns3 size={14} />
+            <span>删列</span>
           </button>
         </div>
       )}

@@ -1,6 +1,7 @@
 import {
   access,
   copyFile,
+  cp,
   mkdir,
   readdir,
   readFile,
@@ -10,7 +11,14 @@ import {
   unlink,
   writeFile
 } from 'node:fs/promises'
-import { basename, dirname, extname, join } from 'node:path'
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  relative
+} from 'node:path'
 import type { FileNode, GlobalSearchMatch } from '../../shared/types/files'
 
 const ignoredDirectories = new Set(['.git', 'node_modules', 'out', 'dist', 'build'])
@@ -226,11 +234,46 @@ export async function copyFileToDirectory(
   sourcePath: string,
   destinationDirectory: string
 ): Promise<string> {
+  if (isInsidePath(destinationDirectory, sourcePath)) {
+    throw new Error('不能将文件夹复制到自身内部')
+  }
+
   const target = await uniquePath(
     join(destinationDirectory, basename(sourcePath))
   )
-  await copyFile(sourcePath, target)
+  const sourceStats = await stat(sourcePath)
+  if (sourceStats.isDirectory()) {
+    await cp(sourcePath, target, { recursive: true })
+  } else {
+    await copyFile(sourcePath, target)
+  }
   return target
+}
+
+export async function moveFileToDirectory(
+  sourcePath: string,
+  destinationDirectory: string
+): Promise<string> {
+  if (isInsidePath(destinationDirectory, sourcePath)) {
+    throw new Error('不能将文件夹移动到自身内部')
+  }
+
+  const target = await uniquePath(
+    join(destinationDirectory, basename(sourcePath))
+  )
+  if (target === sourcePath) {
+    return sourcePath
+  }
+  await rename(sourcePath, target)
+  return target
+}
+
+function isInsidePath(path: string, parent: string): boolean {
+  const relation = relative(parent, path)
+  return (
+    relation === '' ||
+    (!relation.startsWith('..') && !isAbsolute(relation))
+  )
 }
 
 export async function renameEntry(

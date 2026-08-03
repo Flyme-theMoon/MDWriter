@@ -70,6 +70,15 @@ export interface CopyFileResult {
   path: string
 }
 
+export interface CutFilePayload {
+  sourcePath: string
+  destinationDirectory: string
+}
+
+export interface CutFileResult {
+  path: string
+}
+
 export interface RenameEntryPayload {
   sourcePath: string
   name: string

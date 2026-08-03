@@ -7,6 +7,8 @@ import type {
   CreateFileResult,
   CopyFilePayload,
   CopyFileResult,
+  CutFilePayload,
+  CutFileResult,
   DeleteFilePayload,
   DeleteFileResult,
   ExportPdfPayload,
@@ -49,6 +51,7 @@ declare global {
       createFile: (payload: CreateFilePayload) => Promise<CreateFileResult>
       createDirectory: (payload: CreateDirectoryPayload) => Promise<CreateDirectoryResult>
       copyFile: (payload: CopyFilePayload) => Promise<CopyFileResult>
+      cutFile: (payload: CutFilePayload) => Promise<CutFileResult>
       renameEntry: (payload: RenameEntryPayload) => Promise<RenameEntryResult>
       deleteFile: (payload: DeleteFilePayload) => Promise<DeleteFileResult>
       openPath: (path: string) => Promise<OpenPathResult>

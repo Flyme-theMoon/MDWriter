@@ -4,6 +4,7 @@ import {
   FilePlus2,
   FolderPlus,
   Pencil,
+  Scissors,
   Trash2,
   X
 } from 'lucide-react'
@@ -17,6 +18,7 @@ interface FileContextMenuProps {
   onNewFile: () => void
   onNewFolder: () => void
   onCopyFile: () => void
+  onCutFile: () => void
   onPaste: () => void
   onRename: () => void
   onDeleteFile: () => void
@@ -33,6 +35,7 @@ export function FileContextMenu({
   onNewFile,
   onNewFolder,
   onCopyFile,
+  onCutFile,
   onPaste,
   onRename,
   onDeleteFile,
@@ -40,7 +43,7 @@ export function FileContextMenu({
   onClose
 }: FileContextMenuProps) {
   const left = Math.min(x, Math.max(8, window.innerWidth - 224))
-  const top = Math.min(y, Math.max(8, window.innerHeight - 220))
+  const top = Math.min(y, Math.max(8, window.innerHeight - 280))
 
   const run = (action: () => void): void => {
     action()
@@ -74,7 +77,16 @@ export function FileContextMenu({
             onClick={() => run(onCopyFile)}
           >
             <ClipboardCopy size={14} />
-            <span>复制文件</span>
+            <span>复制</span>
+          </button>
+          <button
+            className="file-context-item"
+            type="button"
+            role="menuitem"
+            onClick={() => run(onCutFile)}
+          >
+            <Scissors size={14} />
+            <span>剪切</span>
           </button>
           <button
             className="file-context-item"
@@ -84,7 +96,7 @@ export function FileContextMenu({
             onClick={() => canPaste && run(onPaste)}
           >
             <ClipboardPaste size={14} />
-            <span>粘贴到当前文件夹</span>
+            <span>粘贴到此处</span>
           </button>
           <div className="file-context-separator" />
           <button
@@ -130,11 +142,31 @@ export function FileContextMenu({
             className="file-context-item"
             type="button"
             role="menuitem"
+            onClick={() => run(onCopyFile)}
+          >
+            <ClipboardCopy size={14} />
+            <span>复制</span>
+          </button>
+          {!isRoot && (
+            <button
+              className="file-context-item"
+              type="button"
+              role="menuitem"
+              onClick={() => run(onCutFile)}
+            >
+              <Scissors size={14} />
+              <span>剪切</span>
+            </button>
+          )}
+          <button
+            className="file-context-item"
+            type="button"
+            role="menuitem"
             disabled={!canPaste}
             onClick={() => canPaste && run(onPaste)}
           >
             <ClipboardPaste size={14} />
-            <span>粘贴 Markdown</span>
+            <span>粘贴到此处</span>
           </button>
           {isRoot && (
             <>

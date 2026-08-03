@@ -4,6 +4,7 @@ import { copyFile, mkdir, stat, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import type { AppState } from '../../shared/types/state'
 import type {
+  CutFilePayload,
   CreateDirectoryPayload,
   CreateFilePayload,
   CopyFilePayload,
@@ -19,6 +20,7 @@ import {
   createMarkdownFile,
   deleteFile,
   listDirectory,
+  moveFileToDirectory,
   readTextFile,
   renameEntry,
   saveTextFile,
@@ -33,6 +35,10 @@ let closeAllowed = false
 let closePromptActive = false
 let closePromptWindow: BrowserWindow | null = null
 let mainWindow: BrowserWindow | null = null
+
+function looksLikeImagesDirectory(directory: string): boolean {
+  return basename(directory).toLowerCase() === 'images'
+}
 
 function promptClose(): void {
   if (closePromptActive || !closePromptWindow) return
@@ -151,11 +157,13 @@ export function registerIpcHandlers(): void {
       try {
         // Check if images/ subdirectory exists
         let hasImagesDir = false
-        try {
-          const st = await stat(join(payload.fileDir, 'images'))
-          hasImagesDir = st.isDirectory()
-        } catch {
-          hasImagesDir = false
+        if (!looksLikeImagesDirectory(payload.fileDir)) {
+          try {
+            const st = await stat(join(payload.fileDir, 'images'))
+            hasImagesDir = st.isDirectory()
+          } catch {
+            hasImagesDir = false
+          }
         }
 
         const targetDir = hasImagesDir
@@ -193,11 +201,13 @@ export function registerIpcHandlers(): void {
       try {
         // Check if images/ subdirectory exists in targetDir
         let hasImagesDir = false
-        try {
-          const st = await stat(join(payload.targetDir, 'images'))
-          hasImagesDir = st.isDirectory()
-        } catch {
-          hasImagesDir = false
+        if (!looksLikeImagesDirectory(payload.targetDir)) {
+          try {
+            const st = await stat(join(payload.targetDir, 'images'))
+            hasImagesDir = st.isDirectory()
+          } catch {
+            hasImagesDir = false
+          }
         }
 
         const targetDir = hasImagesDir
@@ -234,6 +244,13 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('file:copy', async (_event, payload: CopyFilePayload) => ({
     path: await copyFileToDirectory(
+      payload.sourcePath,
+      payload.destinationDirectory
+    )
+  }))
+
+  ipcMain.handle('file:cut', async (_event, payload: CutFilePayload) => ({
+    path: await moveFileToDirectory(
       payload.sourcePath,
       payload.destinationDirectory
     )
