@@ -151,6 +151,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     'image:read-data-url',
     async (_event, filePath: unknown): Promise<string | null> => {
+      // Renderer fallback for local images that cannot be loaded as file://.
       try {
         const targetPath = String(filePath)
         const buffer = await readFile(targetPath)

@@ -25,6 +25,8 @@ function headingId(text: string, used: Map<string, number>): string {
   return count === 0 ? idBase : `${idBase}-${count + 1}`
 }
 
+// Single Markdown render entry shared by split preview and PDF export.
+// It produces sanitized HTML with headings, code highlighting and KaTeX.
 export function renderMarkdown(markdown: string): string {
   const usedIds = new Map<string, number>()
   const marked = new Marked({
@@ -75,6 +77,8 @@ export function renderMarkdown(markdown: string): string {
   })
 }
 
+// Export-specific rendering: after generating the shared preview HTML,
+// replace Mermaid source with rendered diagrams and prepare print-friendly CSS.
 export async function buildExportHtml(
   markdown: string,
   dark = false

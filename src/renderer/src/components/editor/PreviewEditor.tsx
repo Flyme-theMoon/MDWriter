@@ -289,6 +289,8 @@ const clearSearchIconSvg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
 
 function removeSerializedEmptyLineBreaks(markdown: string): string {
+  // Milkdown serializes non-last empty paragraphs as <br />. Remove those
+  // standalone placeholders so the saved Markdown stays clean.
   const lines = markdown.split('\n')
   const output: string[] = []
   let inFence = false
@@ -318,6 +320,7 @@ const codeBlockSelectAllKeymap = cmKeymap.of([
 ])
 
 function formatJsonContent(view: CodeMirrorView): boolean {
+  // Format the whole code block only when its content is valid JSON.
   const source = view.state.doc.toString()
   const trimmed = source.trim()
   if (!trimmed) return false
@@ -338,6 +341,7 @@ function formatJsonContent(view: CodeMirrorView): boolean {
 }
 
 const codeBlockJsonExtensions = [
+  // Auto-format valid JSON after paste and expose Ctrl/Cmd+Shift+F in code blocks.
   cmKeymap.of([
     {
       key: 'Mod-Shift-F',
@@ -403,6 +407,8 @@ interface UploadPlaceholderSpec {
   pos: number
 }
 
+// Handles image paste/drop: shows an upload placeholder, saves the file, then
+// inserts the image as a block and moves the caret below it.
 const imageUploadPlugin = $prose((ctx) => {
   const pluginKey = new PluginKey('MDWRITER_IMAGE_UPLOAD')
 
@@ -442,6 +448,8 @@ const imageUploadPlugin = $prose((ctx) => {
     insertPos: number,
     fragment: Fragment
   ): { tr: Transaction; selectionPos: number } | null => {
+    // Put images in their own paragraph, then move the caret to the start of
+    // the following paragraph so typing continues below-left of the image.
     const schema = ctx.get(schemaCtx)
     const resolved = state.doc.resolve(insertPos)
     const headingDepth = findBlockDepth(resolved, 'heading')
@@ -597,6 +605,8 @@ const imageUploadPlugin = $prose((ctx) => {
         const html = event.clipboardData?.getData('text/html') ?? ''
         if (!html || !/<img\b/i.test(html)) return false
 
+        // HTML clipboard content often contains <img> followed by <br> or
+        // wrapper markup. Extract only the image nodes so no BR leaks into Markdown.
         const parsed = new DOMParser().parseFromString(html, 'text/html')
         const htmlImages = Array.from(parsed.querySelectorAll('img'))
         const schema = ctx.get(schemaCtx)
@@ -675,6 +685,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
     const handleImageError = (event: Event): void => {
       const image = event.target
       if (!(image instanceof HTMLImageElement)) return
+      // Fall back to IPC data URLs when file:// images are blocked by Chromium.
       if (!image.src.startsWith('file://') || image.dataset.mdwriterFallback) {
         return
       }
@@ -807,6 +818,8 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
           ctx.set(rootCtx, root)
           ctx.set(defaultValueCtx, value)
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
+            // Normalize editor output back to relative image paths and remove
+            // Milkdown's empty-paragraph <br /> before updating app state.
             const normalizedMarkdown = removeSerializedEmptyLineBreaks(
               filePathRef.current
                 ? relativizeImagePaths(markdown, filePathRef.current)
@@ -844,6 +857,8 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
           })
           ctx.set(uploadConfig.key, {
             uploader: async (files, schema) => {
+              // Save pasted images next to the Markdown file when possible;
+              // unsaved documents use a temp directory until first save.
               const images: File[] = []
               for (let i = 0; i < files.length; i++) {
                 const file = files.item(i)

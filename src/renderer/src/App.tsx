@@ -929,6 +929,8 @@ export default function App() {
     const tab = tabs.find((item) => item.id === id)
     if (!tab) return null
 
+    // Markdown files should keep relative image paths. On first save, temp
+    // images are also moved into the file's images directory.
     const content = tab.path ? relativizeImagePaths(tab.content, tab.path) : tab.content
 
     const result = await window.mdwriter.saveFile({

@@ -60,6 +60,7 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, PreviewPaneProps>(
     const handleImageError = (event: Event): void => {
       const image = event.target
       if (!(image instanceof HTMLImageElement)) return
+      // Fall back to IPC data URLs when file:// images are blocked by Chromium.
       if (!image.src.startsWith('file://') || image.dataset.mdwriterFallback) {
         return
       }

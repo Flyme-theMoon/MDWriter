@@ -1,3 +1,6 @@
+// Keep Markdown portable: files store relative image paths, while rendering
+// resolves them to file:// URLs for this app.
+
 function encodePath(filePath: string): string {
   return encodeURI(filePath)
     .replace(/#/g, '%23')
@@ -52,6 +55,7 @@ function encodeMarkdownImagePaths(content: string): string {
 }
 
 export function toFileUrl(filePath: string): string {
+  // Convert a local filesystem path to an absolute file:// URL for the renderer.
   const normalized = filePath.replace(/\\/g, '/')
   const encoded = encodePath(normalized)
   return normalized.startsWith('/')
@@ -60,12 +64,14 @@ export function toFileUrl(filePath: string): string {
 }
 
 export function fileUrlToPath(fileUrl: string): string {
+  // Reverse file:// URLs, including Windows drive paths, back to local paths.
   const path = fileUrl.replace(/^file:\/\//i, '')
   const decoded = decodeURI(path)
   return /^\/[A-Za-z]:\//.test(decoded) ? decoded.slice(1) : decoded
 }
 
 export function resolveImagePaths(content: string, filePath?: string | null): string {
+  // Resolve relative image paths against the current Markdown file.
   if (!filePath) return content
 
   const fileDir = filePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
@@ -87,6 +93,7 @@ export function resolveImagePaths(content: string, filePath?: string | null): st
 }
 
 export function relativizeImagePaths(content: string, filePath?: string | null): string {
+  // Normalize absolute local image URLs back to relative Markdown paths before saving.
   if (!filePath) return content
 
   const fileDir = filePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
