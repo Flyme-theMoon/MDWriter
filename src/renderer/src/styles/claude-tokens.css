@@ -149,7 +149,7 @@
   --font-display: Newsreader, Georgia, ui-serif, serif;
   --font-sans: Poppins, ui-sans-serif, system-ui, sans-serif;
   --font-serif: Lora, Georgia, ui-serif, serif;
-  --font-mono: 'Cascadia Code', Consolas, 'Geist Mono', ui-monospace, monospace;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
   /* spacing */
   --spacing: 0.25rem;
   /* radius */
@@ -317,7 +317,7 @@
   --font-display: Newsreader, Georgia, ui-serif, serif;
   --font-sans: Poppins, ui-sans-serif, system-ui, sans-serif;
   --font-serif: Lora, Georgia, ui-serif, serif;
-  --font-mono: 'Cascadia Code', Consolas, 'Geist Mono', ui-monospace, monospace;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
   /* radius */
   --radius-sm: 8px;
   --radius-md: 12px;

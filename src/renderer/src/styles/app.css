@@ -1035,7 +1035,8 @@ button.file-item.active {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 html.dark .source-editor {
@@ -1543,7 +1544,7 @@ html.dark .milkdown-host {
 }
 
 .markdown-preview img,
-.milkdown img {
+.milkdown img:not(.ProseMirror-separator) {
   display: block;
   max-width: 100%;
   max-height: 420px;
@@ -1556,6 +1557,29 @@ html.dark .milkdown-host {
   box-shadow: var(--shadow-sm);
   cursor: zoom-in;
   object-fit: contain;
+}
+
+.milkdown img.ProseMirror-separator {
+  display: inline-block !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  vertical-align: baseline !important;
+}
+
+.milkdown .ProseMirror img:not(.ProseMirror-separator) {
+  display: inline-block;
+  margin: 0.25rem 0.25rem;
+  vertical-align: bottom;
+}
+
+.milkdown .ProseMirror p:has(> img:first-child):has(> br.ProseMirror-trailingBreak) {
+  line-height: 1;
+  text-align: center;
 }
 
 .preview-editor-wrap,

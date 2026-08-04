@@ -12,6 +12,7 @@ import {
   renderMermaidToElement,
   rerenderMermaidElement
 } from '../../markdown/mermaid'
+import { fileUrlToPath } from '../../markdown/imagePaths'
 import type { OutlineHeading } from '../../markdown/outline'
 
 export interface PreviewPaneProps {
@@ -51,6 +52,29 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, PreviewPaneProps>(
   )
 
   const html = useMemo(() => renderMarkdown(markdown), [markdown])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !window.mdwriter) return
+
+    const handleImageError = (event: Event): void => {
+      const image = event.target
+      if (!(image instanceof HTMLImageElement)) return
+      if (!image.src.startsWith('file://') || image.dataset.mdwriterFallback) {
+        return
+      }
+
+      image.dataset.mdwriterFallback = '1'
+      void window.mdwriter
+        ?.readImageDataUrl(fileUrlToPath(image.src))
+        .then((dataUrl) => {
+          if (dataUrl && image.isConnected) image.src = dataUrl
+        })
+    }
+
+    container.addEventListener('error', handleImageError, true)
+    return () => container.removeEventListener('error', handleImageError, true)
+  }, [html])
 
   useEffect(() => {
     const container = containerRef.current

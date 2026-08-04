@@ -44,6 +44,7 @@ declare global {
         fileDir: string
       }) => Promise<{ relativePath: string } | { error: string }>
       getTempDir: () => Promise<string>
+      readImageDataUrl: (path: string) => Promise<string | null>
       moveImageToDir: (payload: {
         sourcePath: string
         targetDir: string

@@ -1,5 +1,8 @@
 import { syntaxHighlighting } from '@codemirror/language'
-import { keymap as cmKeymap } from '@codemirror/view'
+import {
+  EditorView as CodeMirrorView,
+  keymap as cmKeymap
+} from '@codemirror/view'
 import {
   Bold,
   Check,
@@ -50,7 +53,8 @@ import {
   PluginKey,
   TextSelection,
   type Command,
-  type EditorState
+  type EditorState,
+  type Transaction
 } from '@milkdown/prose/state'
 import {
   Decoration,
@@ -85,6 +89,11 @@ import {
   type MouseEvent as ReactMouseEvent
 } from 'react'
 import type { OutlineHeading } from '../../markdown/outline'
+import {
+  fileUrlToPath,
+  relativizeImagePaths,
+  toFileUrl
+} from '../../markdown/imagePaths'
 import { rerenderMermaidElement } from '../../markdown/mermaid'
 import { findFuzzyRanges } from '../../search/fuzzy'
 import { vscodeHighlightStyle } from '../../editor/highlightStyle'
@@ -279,6 +288,20 @@ const formattingShortcuts = $prose((ctx) => {
 const clearSearchIconSvg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
 
+function removeSerializedEmptyLineBreaks(markdown: string): string {
+  const lines = markdown.split('\n')
+  const output: string[] = []
+  let inFence = false
+
+  for (const line of lines) {
+    if (/^\s*(`{3,}|~{3,})/.test(line)) inFence = !inFence
+    if (!inFence && /^[ \t]*<br\s*\/?>[ \t]*$/.test(line)) continue
+    output.push(line)
+  }
+
+  return output.join('\n')
+}
+
 const copyIconSvg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
 
@@ -293,6 +316,49 @@ const codeBlockSelectAllKeymap = cmKeymap.of([
     }
   }
 ])
+
+function formatJsonContent(view: CodeMirrorView): boolean {
+  const source = view.state.doc.toString()
+  const trimmed = source.trim()
+  if (!trimmed) return false
+
+  try {
+    const parsed = JSON.parse(trimmed)
+    const formatted = JSON.stringify(parsed, null, 2)
+    if (formatted === source) return true
+
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: formatted },
+      selection: { anchor: formatted.length }
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const codeBlockJsonExtensions = [
+  cmKeymap.of([
+    {
+      key: 'Mod-Shift-F',
+      run: formatJsonContent,
+      preventDefault: true
+    },
+    {
+      key: 'Ctrl-Shift-F',
+      run: formatJsonContent,
+      preventDefault: true
+    }
+  ]),
+  CodeMirrorView.domEventHandlers({
+    paste: (_event, view) => {
+      window.setTimeout(() => {
+        formatJsonContent(view)
+      }, 0)
+      return false
+    }
+  })
+]
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
   if (navigator.clipboard?.writeText) {
@@ -371,12 +437,77 @@ const imageUploadPlugin = $prose((ctx) => {
     return Fragment.from(result)
   }
 
+  const buildImageInsert = (
+    state: EditorState,
+    insertPos: number,
+    fragment: Fragment
+  ): { tr: Transaction; selectionPos: number } | null => {
+    const schema = ctx.get(schemaCtx)
+    const resolved = state.doc.resolve(insertPos)
+    const headingDepth = findBlockDepth(resolved, 'heading')
+    const codeBlockDepth = findBlockDepth(resolved, 'code_block')
+    const paragraphDepth = findBlockDepth(resolved, 'paragraph')
+    const blockDepth =
+      headingDepth >= 0
+        ? headingDepth
+        : codeBlockDepth >= 0
+          ? codeBlockDepth
+          : paragraphDepth
+    const tr = state.tr
+
+    if (blockDepth >= 0) {
+      const paragraphType = schema.nodes.paragraph
+      if (!paragraphType) return null
+      const imageParagraph = paragraphType.create(null, fragment)
+      const currentBlock = resolved.node(blockDepth)
+      const isCurrentParagraphEmpty =
+        currentBlock.type.name === 'paragraph' && currentBlock.content.size === 0
+      let afterImage: number
+
+      if (isCurrentParagraphEmpty) {
+        const beforeBlock = resolved.before(blockDepth)
+        const afterBlock = resolved.after(blockDepth)
+        tr.replaceWith(beforeBlock, afterBlock, imageParagraph)
+        afterImage = beforeBlock + imageParagraph.nodeSize
+      } else {
+        const afterBlock = resolved.after(blockDepth)
+        tr.insert(afterBlock, imageParagraph)
+        afterImage = afterBlock + imageParagraph.nodeSize
+      }
+
+      const next = tr.doc.resolve(afterImage).nodeAfter
+      if (next && next.type.name === 'paragraph') {
+        return {
+          tr,
+          selectionPos: afterImage + 1
+        }
+      }
+
+      const cursorParagraph = paragraphType.create()
+      tr.insert(afterImage, cursorParagraph)
+      return {
+        tr,
+        selectionPos: afterImage + 1
+      }
+    }
+
+    tr.replaceWith(insertPos, insertPos, fragment)
+    return {
+      tr,
+      selectionPos: insertPos + fragment.size
+    }
+  }
+
   const handleUpload = (
     view: EditorView,
     event: DragEvent | ClipboardEvent,
     files: FileList | undefined
   ): boolean => {
     if (!files || files.length <= 0) return false
+    const hasImage = Array.from(files).some((file) =>
+      file.type.includes('image')
+    )
+    if (!hasImage) return false
 
     const id = Symbol('mdwriter image upload')
     const schema = ctx.get(schemaCtx)
@@ -400,29 +531,14 @@ const imageUploadPlugin = $prose((ctx) => {
         if (pos < 0) return
 
         const fragment = normalizeResult(result)
-        const resolved = view.state.doc.resolve(pos)
-        const headingDepth = findBlockDepth(resolved, 'heading')
-        const codeBlockDepth = findBlockDepth(resolved, 'code_block')
-        const blockDepth =
-          headingDepth >= 0 ? headingDepth : codeBlockDepth
+        const built = buildImageInsert(view.state, pos, fragment)
+        if (!built) return
 
-        const tr = view.state.tr.setMeta(pluginKey, { remove: { id } })
-        let selectionPos: number
-
-        if (blockDepth >= 0) {
-          const paragraphType = schema.nodes.paragraph
-          if (!paragraphType) return
-          const afterBlock = resolved.after(blockDepth)
-          const paragraph = paragraphType.create(null, fragment)
-          tr.insert(afterBlock, paragraph)
-          selectionPos = afterBlock + paragraph.nodeSize - 1
-        } else {
-          tr.replaceWith(pos, pos, fragment)
-          selectionPos = pos + fragment.size
-        }
-
-        tr.setSelection(TextSelection.create(tr.doc, selectionPos, selectionPos))
-        view.dispatch(tr)
+        built.tr.setMeta(pluginKey, { remove: { id } })
+        built.tr.setSelection(
+          TextSelection.create(built.tr.doc, built.selectionPos, built.selectionPos)
+        )
+        view.dispatch(built.tr)
       })
       .catch((error) => {
         console.error('[image upload]', error)
@@ -474,7 +590,45 @@ const imageUploadPlugin = $prose((ctx) => {
         ) {
           return false
         }
-        return handleUpload(view, event, event.clipboardData?.files)
+        if (event.clipboardData?.files.length) {
+          return handleUpload(view, event, event.clipboardData.files)
+        }
+
+        const html = event.clipboardData?.getData('text/html') ?? ''
+        if (!html || !/<img\b/i.test(html)) return false
+
+        const parsed = new DOMParser().parseFromString(html, 'text/html')
+        const htmlImages = Array.from(parsed.querySelectorAll('img'))
+        const schema = ctx.get(schemaCtx)
+        const imageType = schema.nodes.image
+        if (!imageType || htmlImages.length === 0) return false
+
+        const nodes = htmlImages
+          .map((image) => {
+            const src = image.getAttribute('src') ?? ''
+            if (!src) return null
+            return imageType.createAndFill({
+              src,
+              alt: image.getAttribute('alt') ?? '',
+              title: image.getAttribute('title') ?? ''
+            })
+          })
+          .filter((node): node is ProseNode => node != null)
+
+        if (nodes.length === 0) return false
+
+        const built = buildImageInsert(
+          view.state,
+          view.state.selection.from,
+          Fragment.fromArray(nodes)
+        )
+        if (!built) return false
+
+        built.tr.setSelection(
+          TextSelection.create(built.tr.doc, built.selectionPos, built.selectionPos)
+        )
+        view.dispatch(built.tr)
+        return true
       },
       handleDrop: (view, event) => {
         if (!(event instanceof DragEvent)) return false
@@ -513,6 +667,29 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
         void rerenderMermaidElement(element, dark)
       })
   }, [dark])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !window.mdwriter) return
+
+    const handleImageError = (event: Event): void => {
+      const image = event.target
+      if (!(image instanceof HTMLImageElement)) return
+      if (!image.src.startsWith('file://') || image.dataset.mdwriterFallback) {
+        return
+      }
+
+      image.dataset.mdwriterFallback = '1'
+      void window.mdwriter
+        ?.readImageDataUrl(fileUrlToPath(image.src))
+        .then((dataUrl) => {
+          if (dataUrl && image.isConnected) image.src = dataUrl
+        })
+    }
+
+    container.addEventListener('error', handleImageError, true)
+    return () => container.removeEventListener('error', handleImageError, true)
+  }, [])
 
   useEffect(
     () => () => {
@@ -630,14 +807,22 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
           ctx.set(rootCtx, root)
           ctx.set(defaultValueCtx, value)
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
-            onChange(markdown)
+            const normalizedMarkdown = removeSerializedEmptyLineBreaks(
+              filePathRef.current
+                ? relativizeImagePaths(markdown, filePathRef.current)
+                : markdown
+            )
+            onChange(
+              normalizedMarkdown
+            )
           })
           ctx.set(codeBlockConfig.key, {
             ...defaultConfig,
             languages: editorLanguages,
             extensions: [
               syntaxHighlighting(vscodeHighlightStyle),
-              codeBlockSelectAllKeymap
+              codeBlockSelectAllKeymap,
+              ...codeBlockJsonExtensions
             ],
             copyText: '复制',
             copyIcon: copyIconSvg,
@@ -693,7 +878,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
                       })
                     }
                     return schema.nodes.image.createAndFill({
-                      src: `mdwriter:///${tempDir}/${result.relativePath}`,
+                      src: toFileUrl(`${tempDir}/${result.relativePath}`),
                       alt: img.name || 'image'
                     })
                   })
@@ -724,7 +909,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
                       })
                     }
                     return schema.nodes.image.createAndFill({
-                      src: `mdwriter:///${tempDir}/${result.relativePath}`,
+                      src: toFileUrl(`${tempDir}/${result.relativePath}`),
                       alt: img.name || 'image'
                     })
                   })
@@ -754,7 +939,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
                       })
                     }
                     return schema.nodes.image.createAndFill({
-                      src: `mdwriter:///${tempDir}/${result.relativePath}`,
+                      src: toFileUrl(`${tempDir}/${result.relativePath}`),
                       alt: img.name || 'image'
                     })
                   })
@@ -791,12 +976,12 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
                       })
                     }
                     return schema.nodes.image.createAndFill({
-                      src: `mdwriter:///${tempDir}/${retryResult.relativePath}`,
+                      src: toFileUrl(`${tempDir}/${retryResult.relativePath}`),
                       alt: img.name || 'image'
                     })
                   }
                   return schema.nodes.image.createAndFill({
-                    src: `mdwriter:///${fileDir}/${result.relativePath}`,
+                    src: toFileUrl(`${fileDir}/${result.relativePath}`),
                     alt: img.name || 'image'
                   })
                 })

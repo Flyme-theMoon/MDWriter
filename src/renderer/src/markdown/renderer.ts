@@ -53,7 +53,7 @@ export function renderMarkdown(markdown: string): string {
   const html = marked.parse(markdown, { async: false }) as string
   // Sanitize before injecting into the DOM: raw HTML in markdown must not be
   // able to run scripts or event handlers. Unknown protocols are kept so
-  // mdwriter:// and data: image URLs keep working; javascript: is always
+  // file:// and data: image URLs keep working; javascript: is always
   // removed by DOMPurify.
   return DOMPurify.sanitize(html, {
     ALLOW_UNKNOWN_PROTOCOLS: true,

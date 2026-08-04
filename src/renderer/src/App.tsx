@@ -34,35 +34,14 @@ import type {
 import type { AppState } from '@shared/types/state'
 import type { OutlineHeading } from './markdown/outline'
 import { buildOutlineTree, extractOutline } from './markdown/outline'
+import {
+  fileUrlToPath,
+  relativizeImagePaths,
+  resolveImagePaths,
+  toFileUrl
+} from './markdown/imagePaths'
 import { AppCloseDialog } from './components/AppCloseDialog'
 import { FileDeleteDialog } from './components/FileDeleteDialog'
-
-// Transform relative image paths in markdown to absolute mdwriter:// URLs
-function resolveImagePaths(content: string, filePath: string): string {
-  const fileDir = filePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
-  return content.replace(
-    /!\[([^\]]*)\]\(([^)]+)\)/g,
-    (match, alt, url) => {
-      const href = url.split(/\s+/)[0]
-      if (
-        href.startsWith('http://') ||
-        href.startsWith('https://') ||
-        href.startsWith('mdwriter://') ||
-        href.startsWith('data:')
-      ) {
-        return match
-      }
-      return `![${alt}](mdwriter:///${fileDir}/${url})`
-    }
-  )
-}
-
-// Transform absolute mdwriter:// image URLs back to relative paths
-function relativizeImagePaths(content: string, filePath: string): string {
-  const fileDir = filePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
-  const escapedDir = fileDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return content.replace(new RegExp(`mdwriter:///${escapedDir}/`, 'g'), '')
-}
 
 // Copy images from temp paths to the file's images/ directory and update references
 async function resolveTempImages(
@@ -72,14 +51,15 @@ async function resolveTempImages(
   if (!window.mdwriter) return content
 
   const normalizedFileDir = fileDir.replace(/\\/g, '/')
-  const mdwriterRegex = /!\[([^\]]*)\]\(mdwriter:\/\/\/([^)]+)\)/g
+  const fileUrlRegex =
+    /!\[([^\]]*)\]\((file:\/\/[^)\s]+)(\s+(["'][^"']*["'])\s*)?\)/g
 
   const replacements: Array<{ full: string; replacement: string }> = []
   let match
 
-  while ((match = mdwriterRegex.exec(content)) !== null) {
+  while ((match = fileUrlRegex.exec(content)) !== null) {
     const [full, alt, urlPart] = match
-    const href = urlPart.split(/\s+/)[0] // ignore title attribute
+    const href = fileUrlToPath(urlPart)
 
     // Skip paths already under the current fileDir
     if (href.startsWith(normalizedFileDir)) {
@@ -94,7 +74,7 @@ async function resolveTempImages(
 
     if ('error' in result) continue
 
-    const newSrc = `mdwriter:///${normalizedFileDir}/${result.relativePath}`
+    const newSrc = toFileUrl(`${normalizedFileDir}/${result.relativePath}`)
     replacements.push({ full, replacement: `![${alt}](${newSrc})` })
   }
 
@@ -331,7 +311,7 @@ export default function App() {
                   id: savedTab.id,
                   title: savedTab.title,
                   path: savedTab.path,
-                  content: resolveImagePaths(file.content, savedTab.path),
+                  content: relativizeImagePaths(file.content, savedTab.path),
                   dirty: false
                 }
               } catch {
@@ -340,10 +320,12 @@ export default function App() {
               }
             }
 
-            let content = savedTab.content ?? ''
+            let content = savedTab.path
+              ? relativizeImagePaths(savedTab.content ?? '', savedTab.path)
+              : savedTab.content ?? ''
             if (!content && savedTab.path) {
               try {
-                content = resolveImagePaths(
+                content = relativizeImagePaths(
                   (await mdwriter.readFile(savedTab.path)).content,
                   savedTab.path
                 )
@@ -592,7 +574,7 @@ export default function App() {
     const tab: EditorTab = {
       id,
       title: file.path.split(/[\\/]/).pop() ?? '未命名.md',
-      content: resolveImagePaths(file.content, file.path),
+      content: relativizeImagePaths(file.content, file.path),
       path: file.path,
       dirty: false
     }
@@ -957,21 +939,22 @@ export default function App() {
 
     if (!result.canceled && result.path) {
       const savedPath = result.path
-      let processedContent = tab.content
+      let processedContent = content
 
       // First save - resolve temporary images to permanent directory
       if (!tab.path) {
         const fileDir = savedPath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
-        processedContent = await resolveTempImages(tab.content, fileDir)
+        processedContent = await resolveTempImages(content, fileDir)
+        const relativeContent = relativizeImagePaths(processedContent, savedPath)
 
-        if (processedContent !== tab.content) {
+        if (relativeContent !== content) {
           // Save again with updated image paths
-          const relativeContent = relativizeImagePaths(processedContent, savedPath)
           await window.mdwriter.saveFile({
             path: savedPath,
             content: relativeContent,
             defaultName: tab.title
           })
+          processedContent = relativeContent
         }
       }
 
@@ -1143,7 +1126,10 @@ export default function App() {
     const defaultName = activeTab.title.replace(/\.md$/i, '') + '.pdf'
     const { buildExportHtml } = await import('./markdown/renderer')
     await window.mdwriter.exportPdf({
-      html: await buildExportHtml(activeTab.content, dark),
+      html: await buildExportHtml(
+        resolveImagePaths(activeTab.content, activeTab.path),
+        dark
+      ),
       defaultName
     })
   }
@@ -1730,7 +1716,10 @@ export default function App() {
                   <div className="preview-pane">
                     <PreviewPane
                       ref={splitPreviewRef}
-                      markdown={activeTab.content}
+                      markdown={resolveImagePaths(
+                        activeTab.content,
+                        activeTab.path
+                      )}
                       dark={dark}
                       onImagePreview={setLightboxSrc}
                     />
@@ -1742,7 +1731,7 @@ export default function App() {
                   <PreviewEditor
                     ref={previewEditorRef}
                     key={`${activeTab.id}-preview`}
-                    value={activeTab.content}
+                    value={resolveImagePaths(activeTab.content, activeTab.path)}
                     onChange={updateActiveContent}
                     onImagePreview={setLightboxSrc}
                     filePath={activeTab.path}

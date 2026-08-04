@@ -4,9 +4,9 @@ MDWriter 是一款基于 Electron 的 Markdown 编辑器与预览工具，目标
 
 ## 当前版本
 
-- 产品版本：V1.0.0.3
-- Windows 便携版产物：`MDWriter-1.0.0.3-portable.exe`
-- macOS DMG 产物：`MDWriter-1.0.0.3.dmg`
+- 产品版本：V1.0.0.4
+- Windows 便携版产物：`MDWriter-1.0.0.4-portable.exe`
+- macOS DMG 产物：`MDWriter-1.0.0.4.dmg`
 - 最低支持：Windows 10
 - macOS：当前作为开发环境使用，支持 `dmg` 打包
 
@@ -63,7 +63,7 @@ npx electron-builder --win portable --publish never
 打包完成后，可执行文件位于：
 
 ```text
-dist/MDWriter-1.0.0.3-portable.exe
+dist/MDWriter-1.0.0.4-portable.exe
 ```
 
 这个 EXE 无需安装，复制到其他 Windows 10+ 电脑后双击即可运行。
@@ -120,15 +120,15 @@ npx electron-builder --mac dmg --publish never
 打包完成后，DMG 位于：
 
 ```text
-dist/MDWriter-1.0.0.3.dmg
+dist/MDWriter-1.0.0.4.dmg
 ```
 
 macOS 开发时通常直接使用 `npm run dev` 预览，不需要每次都打包。
 
 ## 版本号说明
 
-`package.json` 中的 npm 版本使用 `1.0.3`，因为 npm 不接受四段版本号（对应产品版本 `1.0.0.3`）。
-`electron-builder.yml` 中的 `buildVersion: 1.0.0.3` 会映射到 Windows 文件版本和 macOS `CFBundleVersion`，因此打包产物使用 `1.0.0.3`。
+`package.json` 中的 npm 版本使用 `1.0.4`，因为 npm 不接受四段版本号（对应产品版本 `1.0.0.4`）。
+`electron-builder.yml` 中的 `buildVersion: 1.0.0.4` 会映射到 Windows 文件版本和 macOS `CFBundleVersion`，因此打包产物使用 `1.0.0.4`。
 
 ## 目录结构
 

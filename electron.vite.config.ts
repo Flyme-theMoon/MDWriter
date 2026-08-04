@@ -7,7 +7,7 @@ const productionCsp = [
   "default-src 'self' file:",
   "script-src 'self' file:",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' file: data: blob: mdwriter:",
+  "img-src 'self' file: data: blob:",
   "font-src 'self' file: data:",
   "connect-src 'self'",
   "object-src 'none'",

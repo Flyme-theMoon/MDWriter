@@ -56,6 +56,8 @@ const api = {
     ipcRenderer.invoke('image:save', payload),
   getTempDir: (): Promise<string> =>
     ipcRenderer.invoke('image:get-temp-dir'),
+  readImageDataUrl: (path: string): Promise<string | null> =>
+    ipcRenderer.invoke('image:read-data-url', path),
   moveImageToDir: (payload: {
     sourcePath: string
     targetDir: string

@@ -59,7 +59,7 @@ flowchart LR
 
 **加粗**、*斜体*、`行内代码`、[正常链接](https://example.com)、表格。
 
-![本地图片 mdwriter](mdwriter:///E:/notes/images/不存在的图.png)
+![本地图片](file:///E:/notes/images/不存在的图.png)
 
 ![data 图片](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==)
 

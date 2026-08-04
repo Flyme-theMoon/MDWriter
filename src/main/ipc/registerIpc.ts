@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron'
 import { basename, dirname, extname, join } from 'node:path'
-import { copyFile, mkdir, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import type { AppState } from '../../shared/types/state'
 import type {
@@ -147,6 +147,30 @@ export function registerIpcHandlers(): void {
     await mkdir(tempDir, { recursive: true })
     return tempDir
   })
+
+  ipcMain.handle(
+    'image:read-data-url',
+    async (_event, filePath: unknown): Promise<string | null> => {
+      try {
+        const targetPath = String(filePath)
+        const buffer = await readFile(targetPath)
+        const extension = extname(targetPath).toLowerCase()
+        const mime =
+          extension === '.jpg' || extension === '.jpeg'
+            ? 'image/jpeg'
+            : extension === '.gif'
+              ? 'image/gif'
+              : extension === '.webp'
+                ? 'image/webp'
+                : extension === '.svg'
+                  ? 'image/svg+xml'
+                  : 'image/png'
+        return `data:${mime};base64,${buffer.toString('base64')}`
+      } catch {
+        return null
+      }
+    }
+  )
 
   ipcMain.handle(
     'image:save',

@@ -1,16 +1,7 @@
-import { app, BrowserWindow, protocol, shell } from 'electron'
-import { net } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
 import { installCloseGuard, registerIpcHandlers } from './ipc/registerIpc'
 import { getPlatformWindowOptions } from './windowOptions'
-
-// Register privileged scheme before app.ready
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: 'mdwriter',
-    privileges: { stream: true, supportFetchAPI: true }
-  }
-])
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -54,12 +45,6 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   app.setName('MDWriter')
-
-  // Register protocol handler to serve local files (e.g. images saved to workspace)
-  protocol.handle('mdwriter', (request) => {
-    const filePath = decodeURIComponent(request.url.slice('mdwriter:///'.length))
-    return net.fetch('file:///' + filePath)
-  })
 
   registerIpcHandlers()
   createWindow()
