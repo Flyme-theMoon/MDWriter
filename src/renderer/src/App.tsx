@@ -19,6 +19,8 @@ import {
   Keyboard,
   ListTree,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Save,
   Search,
   Sun,
@@ -200,6 +202,7 @@ export default function App() {
   const [pendingAppClose, setPendingAppClose] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(220)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [resizingSidebar, setResizingSidebar] = useState(false)
   const [maximized, setMaximized] = useState(false)
   const [currentSearchOpen, setCurrentSearchOpen] = useState(false)
@@ -1387,24 +1390,6 @@ export default function App() {
       <button
         className="icon-button"
         type="button"
-        data-tooltip="新建标签页"
-        aria-label="新建标签页"
-        onClick={addTab}
-      >
-        <FilePlus2 size={16} />
-      </button>
-      <button
-        className="icon-button"
-        type="button"
-        data-tooltip="添加文件夹"
-        aria-label="添加文件夹"
-        onClick={openDirectory}
-      >
-        <FolderOpen size={16} />
-      </button>
-      <button
-        className="icon-button"
-        type="button"
         data-tooltip="导出 PDF"
         aria-label="导出 PDF"
         onClick={exportPdf}
@@ -1432,10 +1417,39 @@ export default function App() {
     </div>
   )
 
+  const modeSwitch = (
+    <div className="mode-switch" role="group" aria-label="编辑模式">
+      <button
+        className={`mode-button${mode === 'source' ? ' active' : ''}`}
+        type="button"
+        onClick={() => setMode('source')}
+      >
+        <Code2 size={15} />
+        <span>源码</span>
+      </button>
+      <button
+        className={`mode-button${mode === 'split' ? ' active' : ''}`}
+        type="button"
+        onClick={() => setMode('split')}
+      >
+        <Columns2 size={15} />
+        <span>分栏</span>
+      </button>
+      <button
+        className={`mode-button${mode === 'preview' ? ' active' : ''}`}
+        type="button"
+        onClick={() => setMode('preview')}
+      >
+        <Eye size={15} />
+        <span>预览编辑</span>
+      </button>
+    </div>
+  )
+
   return (
     <div
-      className={`app-shell${resizingSidebar ? ' resizing-sidebar' : ''}${isMac ? ' platform-darwin' : ''}`}
-      style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
+      className={`app-shell${resizingSidebar ? ' resizing-sidebar' : ''}${isMac ? ' platform-darwin' : ''}${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}
+      style={{ '--sidebar-width': `${sidebarCollapsed ? 36 : sidebarWidth}px` } as CSSProperties}
     >
       <header className="topbar">
         <div className="brand">
@@ -1446,10 +1460,7 @@ export default function App() {
           </div>
         </div>
         {isMac ? (
-          <>
-            {tabStrip}
-            {topActions}
-          </>
+          <span className="topbar-spacer" />
         ) : (
           <>
             <span className="topbar-spacer" />
@@ -1458,65 +1469,87 @@ export default function App() {
         )}
       </header>
 
-      <aside className="sidebar">
-        <div className="sidebar-controls">
-          <div className="sidebar-mode-switch" role="group" aria-label="侧边栏模式">
+      {sidebarCollapsed ? (
+        <aside className="sidebar-rail">
+          <button
+            className="sidebar-expand-button"
+            type="button"
+            data-tooltip="展开侧边栏"
+            aria-label="展开侧边栏"
+            onClick={() => setSidebarCollapsed(false)}
+          >
+            <PanelLeftOpen size={16} />
+          </button>
+        </aside>
+      ) : (
+        <aside className="sidebar">
+          <div className="sidebar-controls">
+            <div className="sidebar-mode-switch" role="group" aria-label="侧边栏模式">
+              <button
+                className={`sidebar-mode-button${sidebarMode === 'files' ? ' active' : ''}`}
+                type="button"
+                onClick={() => setSidebarMode('files')}
+              >
+                <FolderOpen size={13} />
+                <span>文件</span>
+              </button>
+              <button
+                className={`sidebar-mode-button${sidebarMode === 'outline' ? ' active' : ''}`}
+                type="button"
+                onClick={() => setSidebarMode('outline')}
+              >
+                <ListTree size={13} />
+                <span>目录</span>
+              </button>
+            </div>
             <button
-              className={`sidebar-mode-button${sidebarMode === 'files' ? ' active' : ''}`}
+              className="sidebar-collapse-button"
               type="button"
-              onClick={() => setSidebarMode('files')}
+              data-tooltip="隐藏侧边栏"
+              aria-label="隐藏侧边栏"
+              onClick={() => setSidebarCollapsed(true)}
             >
-              <FolderOpen size={13} />
-              <span>文件</span>
-            </button>
-            <button
-              className={`sidebar-mode-button${sidebarMode === 'outline' ? ' active' : ''}`}
-              type="button"
-              onClick={() => setSidebarMode('outline')}
-            >
-              <ListTree size={13} />
-              <span>目录</span>
+              <PanelLeftClose size={14} />
             </button>
           </div>
-        </div>
-        <div className="sidebar-scroll">
-          {sidebarMode === 'files' ? (
-            <>
-              {globalSearchOpen ? (
-                <GlobalSearchBar
-                  query={globalSearchQuery}
-                  loading={globalSearchLoading}
-                  onQueryChange={setGlobalSearchQuery}
-                  onSearch={(query) => void runGlobalSearch(query)}
-                  onBack={closeGlobalSearch}
-                />
-              ) : (
-                <div className="file-header">
-                  <span className="file-header-title">文件夹</span>
-                  <div className="file-header-actions">
-                    <button
-                      className="file-action-button"
-                      type="button"
-                      data-tooltip="全局搜索"
-                      aria-label="全局搜索"
-                      onClick={openGlobalSearch}
-                    >
-                      <Search size={13} />
-                    </button>
-                    <button
-                      className="file-action-button"
-                      type="button"
-                      data-tooltip="新建 Markdown 文件"
-                      aria-label="新建 Markdown 文件"
-                      disabled={workspaces.length === 0}
-                      onClick={createMarkdownFile}
-                    >
-                      <FilePlus2 size={13} />
-                    </button>
-                    <button
-                      className="file-action-button"
-                      type="button"
-                      data-tooltip="新建文件夹"
+          <div className="sidebar-scroll">
+            {sidebarMode === 'files' ? (
+              <>
+                {globalSearchOpen ? (
+                  <GlobalSearchBar
+                    query={globalSearchQuery}
+                    loading={globalSearchLoading}
+                    onQueryChange={setGlobalSearchQuery}
+                    onSearch={(query) => void runGlobalSearch(query)}
+                    onBack={closeGlobalSearch}
+                  />
+                ) : (
+                  <div className="file-header">
+                    <span className="file-header-title">文件夹</span>
+                    <div className="file-header-actions">
+                      <button
+                        className="file-action-button"
+                        type="button"
+                        data-tooltip="全局搜索"
+                        aria-label="全局搜索"
+                        onClick={openGlobalSearch}
+                      >
+                        <Search size={13} />
+                      </button>
+                      <button
+                        className="file-action-button"
+                        type="button"
+                        data-tooltip="新建 Markdown 文件"
+                        aria-label="新建 Markdown 文件"
+                        disabled={workspaces.length === 0}
+                        onClick={createMarkdownFile}
+                      >
+                        <FilePlus2 size={13} />
+                      </button>
+                      <button
+                        className="file-action-button"
+                        type="button"
+                        data-tooltip="新建文件夹"
                       aria-label="新建文件夹"
                       disabled={workspaces.length === 0}
                       onClick={createFolder}
@@ -1589,67 +1622,41 @@ export default function App() {
           )}
         </div>
       </aside>
+      )}
 
-      <div
-        className={`sidebar-resizer${resizingSidebar ? ' active' : ''}`}
-        role="separator"
-        aria-orientation="vertical"
-        onPointerDown={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId)
-          setResizingSidebar(true)
-        }}
-        onPointerMove={(event) => {
-          if (!resizingSidebar) return
-          setSidebarWidth(Math.min(420, Math.max(180, event.clientX)))
-        }}
-        onPointerUp={(event) => {
-          setResizingSidebar(false)
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId)
-          }
-        }}
-        onPointerCancel={(event) => {
-          setResizingSidebar(false)
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId)
-          }
-        }}
-      />
+      {!sidebarCollapsed && (
+        <div
+          className={`sidebar-resizer${resizingSidebar ? ' active' : ''}`}
+          role="separator"
+          aria-orientation="vertical"
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId)
+            setResizingSidebar(true)
+          }}
+          onPointerMove={(event) => {
+            if (!resizingSidebar) return
+            setSidebarWidth(Math.min(420, Math.max(180, event.clientX)))
+          }}
+          onPointerUp={(event) => {
+            setResizingSidebar(false)
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            }
+          }}
+          onPointerCancel={(event) => {
+            setResizingSidebar(false)
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            }
+          }}
+        />
+      )}
 
       <main className="workspace">
         <div className="toolbar">
-          <div className="mode-switch" role="group" aria-label="编辑模式">
-            <button
-              className={`mode-button${mode === 'source' ? ' active' : ''}`}
-              type="button"
-              onClick={() => setMode('source')}
-            >
-              <Code2 size={15} />
-              <span>源码</span>
-            </button>
-            <button
-              className={`mode-button${mode === 'split' ? ' active' : ''}`}
-              type="button"
-              onClick={() => setMode('split')}
-            >
-              <Columns2 size={15} />
-              <span>分栏</span>
-            </button>
-            <button
-              className={`mode-button${mode === 'preview' ? ' active' : ''}`}
-              type="button"
-              onClick={() => setMode('preview')}
-            >
-              <Eye size={15} />
-              <span>预览编辑</span>
-            </button>
-          </div>
-          {!isMac && (
-            <>
-              {tabStrip}
-              {topActions}
-            </>
-          )}
+          {modeSwitch}
+          {tabStrip}
+          {topActions}
         </div>
 
         <div className="editor-area" ref={editorAreaRef}>

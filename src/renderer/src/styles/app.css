@@ -27,6 +27,15 @@ button {
   color: inherit;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--brand-500) 28%, var(--background));
+  color: var(--foreground);
+}
+
+.cm-selectionBackground {
+  background: color-mix(in srgb, var(--brand-500) 28%, var(--background)) !important;
+}
+
 .app-shell {
   position: relative;
   display: grid;
@@ -85,27 +94,12 @@ button {
 
 /* macOS uses the default native title bar and the first-version topbar layout. */
 .app-shell.platform-darwin .topbar {
-  display: grid;
-  grid-template-columns: var(--sidebar-width, 220px) minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: var(--spacing);
+  gap: calc(var(--spacing) * 3);
   padding: 0 calc(var(--spacing) * 3);
-  background: color-mix(in srgb, var(--background) 88%, transparent);
+  background: var(--background);
   -webkit-app-region: no-drag;
-}
-
-.app-shell.platform-darwin .topbar .tab-strip {
-  flex: 1;
-  min-width: 0;
-}
-
-.app-shell.platform-darwin .topbar .top-actions {
-  flex-shrink: 0;
-}
-
-.app-shell.platform-darwin .toolbar {
-  padding: 0 calc(var(--spacing) * 4);
-  background: var(--popover);
 }
 
 .brand {
@@ -280,13 +274,18 @@ button {
 
 .sidebar-controls {
   flex-shrink: 0;
-  padding: 5px 16px 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 16px;
   border-bottom: 0;
   background: var(--sidebar);
 }
 
 .sidebar-mode-switch {
   display: flex;
+  flex: 1;
+  min-width: 0;
   gap: 2px;
   padding: 3px;
   border-radius: var(--radius-md);
@@ -320,6 +319,65 @@ button {
   border-color: var(--border);
   color: var(--foreground);
   box-shadow: var(--shadow-xs);
+}
+
+.sidebar-collapse-button,
+.sidebar-expand-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--sidebar-foreground);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.sidebar-collapse-button:hover,
+.sidebar-expand-button:hover {
+  background: var(--sidebar-accent);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.sidebar-collapse-button::after,
+.sidebar-expand-button::after {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 30;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--foreground);
+  color: var(--background);
+  content: attr(data-tooltip);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.14s ease;
+  white-space: nowrap;
+}
+
+.sidebar-collapse-button:hover::after,
+.sidebar-expand-button:hover::after {
+  opacity: 1;
+}
+
+.sidebar-rail {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+  border-right: 1px solid var(--sidebar-border);
+  background: var(--sidebar);
 }
 
 .sidebar-scroll {
@@ -1047,6 +1105,16 @@ html.dark .source-editor {
   user-select: text;
   -webkit-user-select: text;
   -webkit-user-drag: none;
+}
+
+.source-editor .cm-content,
+.milkdown .milkdown-code-block .cm-content {
+  caret-color: var(--foreground);
+}
+
+.source-editor .cm-cursor,
+.milkdown .milkdown-code-block .cm-cursor {
+  border-left-color: var(--foreground);
 }
 
 .milkdown .cm-content {
@@ -2217,6 +2285,10 @@ html.dark .milkdown-host {
   }
 
   .sidebar {
+    display: none;
+  }
+
+  .sidebar-rail {
     display: none;
   }
 
