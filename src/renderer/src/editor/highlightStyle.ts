@@ -1,10 +1,9 @@
 import { HighlightStyle } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 
-// Shared VS Code-style syntax colors for every CodeMirror instance in the
-// app (source editor + Milkdown code blocks). Colors come from the same CSS
-// variables as the preview's hljs tokens, so light/dark themes stay in sync
-// and only need to be tuned in one place.
+// Shared VS Code-style syntax colors for code blocks. Colors come from the
+// same CSS variables as the preview's hljs tokens, so light/dark themes stay
+// in sync and only need to be tuned in one place.
 export const vscodeHighlightStyle = HighlightStyle.define([
   {
     tag: [
@@ -54,4 +53,21 @@ export const vscodeHighlightStyle = HighlightStyle.define([
     color: 'var(--hljs-meta)'
   },
   { tag: t.invalid, color: 'var(--hljs-invalid, #f44747)' }
+])
+
+// Source/split Markdown editing intentionally keeps only heading-level colors,
+// so ordinary Markdown tokens and fenced code do not get noisy highlighting.
+export const sourceMarkdownHighlightStyle = HighlightStyle.define([
+  {
+    tag: [
+      t.heading,
+      t.heading1,
+      t.heading2,
+      t.heading3,
+      t.heading4,
+      t.heading5,
+      t.heading6
+    ],
+    color: 'var(--hljs-keyword)'
+  }
 ])

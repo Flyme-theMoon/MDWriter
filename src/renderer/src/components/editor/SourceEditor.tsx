@@ -4,8 +4,8 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { syntaxHighlighting } from '@codemirror/language'
 import type { ChangeSpec } from '@codemirror/state'
 import { drawSelection, EditorView, keymap } from '@codemirror/view'
-import { vscodeHighlightStyle } from '../../editor/highlightStyle'
-import { editorLanguages } from '../../editor/languages'
+import { sourceMarkdownHighlightStyle } from '../../editor/highlightStyle'
+import { mathSyntax } from '../../editor/mathSyntax'
 
 // Mark the editor as dark/light without pulling in any built-in color theme
 // (e.g. One Dark), so the VS Code palette above is the only source of
@@ -248,7 +248,7 @@ const formattingShortcuts = keymap.of([
 ])
 
 const markdownExtensions = [
-  markdown({ base: markdownLanguage, codeLanguages: editorLanguages }),
+  markdown({ base: markdownLanguage, extensions: mathSyntax }),
   EditorView.lineWrapping,
   drawSelection(),
   headingShortcuts,
@@ -264,7 +264,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
     const extensions = useMemo(
       () => [
         ...markdownExtensions,
-        syntaxHighlighting(vscodeHighlightStyle)
+        syntaxHighlighting(sourceMarkdownHighlightStyle)
       ],
       []
     )
@@ -312,7 +312,8 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
         basicSetup={{
           lineNumbers: true,
           foldGutter: true,
-          highlightActiveLine: true
+          highlightActiveLine: true,
+          syntaxHighlighting: false
         }}
       />
     )

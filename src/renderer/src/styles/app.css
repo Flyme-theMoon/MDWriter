@@ -1115,7 +1115,10 @@ html.dark .source-editor {
   color: var(--muted-foreground);
 }
 
-.source-editor .cm-activeLine,
+.source-editor .cm-activeLine {
+  background: transparent;
+}
+
 .source-editor .cm-activeLineGutter {
   background: var(--muted);
 }

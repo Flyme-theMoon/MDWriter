@@ -1,4 +1,5 @@
-import { lexer } from 'marked'
+import { Marked } from 'marked'
+import markedKatex from 'marked-katex-extension'
 
 export interface OutlineHeading {
   id: string
@@ -10,6 +11,10 @@ export interface OutlineHeading {
 export interface OutlineNode extends OutlineHeading {
   children: OutlineNode[]
 }
+
+const outlineMarked = new Marked(
+  markedKatex({ throwOnError: false, nonStandard: true })
+)
 
 interface InlineToken {
   type?: string
@@ -63,7 +68,7 @@ export function extractOutline(markdown: string): OutlineHeading[] {
   const usedIds = new Map<string, number>()
   let line = 1
 
-  for (const token of lexer(markdown)) {
+  for (const token of outlineMarked.lexer(markdown)) {
     if (token.type === 'heading') {
       const rawText = token.text.trim() || '空标题'
       const plainText = inlinePlainText(token.tokens).trim()

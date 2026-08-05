@@ -221,6 +221,9 @@ export default function App() {
   const sourceEditorRef = useRef<SourceEditorHandle>(null)
   const previewEditorRef = useRef<PreviewEditorHandle>(null)
   const splitPreviewRef = useRef<PreviewPaneHandle>(null)
+  const splitScrollSourceRef = useRef<HTMLElement | null>(null)
+  const splitScrollTargetRef = useRef<HTMLElement | null>(null)
+  const splitScrollSyncingRef = useRef(false)
   const editorAreaRef = useRef<HTMLDivElement>(null)
   const currentSearchInputRef = useRef<HTMLInputElement>(null)
   const currentSearchRangesRef = useRef<Range[]>([])
@@ -262,6 +265,83 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
   }, [dark])
+
+  useEffect(() => {
+    if (mode !== 'split' || !activeTab) return
+
+    let disposed = false
+    let attempts = 0
+    let connectTimer: number | null = null
+    let cleanup: (() => void) | null = null
+
+    const connect = (): void => {
+      if (disposed) return
+
+      const splitView =
+        editorAreaRef.current?.querySelector<HTMLElement>('.split-view')
+      const editorPane = splitView?.querySelector<HTMLElement>('.editor-pane')
+      const previewPane =
+        splitView?.querySelector<HTMLElement>('.preview-pane')
+      const sourceScroller =
+        editorPane?.querySelector<HTMLElement>('.source-editor .cm-scroller')
+
+      if (!splitView || !editorPane || !previewPane || !sourceScroller) {
+        if (attempts < 30) {
+          attempts += 1
+          connectTimer = window.setTimeout(connect, 50)
+        }
+        return
+      }
+
+      const targetScroller = previewPane
+      splitScrollSourceRef.current = sourceScroller
+      splitScrollTargetRef.current = targetScroller
+
+      const syncScroll = (from: HTMLElement, to: HTMLElement): void => {
+        if (splitScrollSyncingRef.current) return
+
+        const fromMax = from.scrollHeight - from.clientHeight
+        if (fromMax <= 0) return
+
+        const toMax = to.scrollHeight - to.clientHeight
+        const nextTop = toMax <= 0 ? 0 : (from.scrollTop / fromMax) * toMax
+
+        splitScrollSyncingRef.current = true
+        to.scrollTop = nextTop
+        window.setTimeout(() => {
+          splitScrollSyncingRef.current = false
+        }, 0)
+      }
+
+      const handleSourceScroll = (): void => {
+        syncScroll(sourceScroller, targetScroller)
+      }
+      const handlePreviewScroll = (): void => {
+        syncScroll(targetScroller, sourceScroller)
+      }
+
+      sourceScroller.addEventListener('scroll', handleSourceScroll, {
+        passive: true
+      })
+      targetScroller.addEventListener('scroll', handlePreviewScroll, {
+        passive: true
+      })
+
+      cleanup = () => {
+        sourceScroller.removeEventListener('scroll', handleSourceScroll)
+        targetScroller.removeEventListener('scroll', handlePreviewScroll)
+        splitScrollSourceRef.current = null
+        splitScrollTargetRef.current = null
+      }
+    }
+
+    connectTimer = window.setTimeout(connect, 30)
+    return () => {
+      disposed = true
+      if (connectTimer !== null) window.clearTimeout(connectTimer)
+      cleanup?.()
+    }
+  }, [mode, activeTab?.id])
 
   useEffect(() => {
     ;(window as any).__workspaces = workspaces.map((ws) => ws.path)
