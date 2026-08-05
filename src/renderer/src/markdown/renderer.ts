@@ -8,6 +8,44 @@ import katexCss from 'katex/dist/katex.min.css?inline'
 import { renderMermaidToElement } from './mermaid'
 import 'katex/dist/katex.min.css'
 
+const MAX_CODE_VISUAL_LINES = 30
+const CODE_CHARS_PER_LINE = 72
+
+function estimateCodeVisualLines(lines: string[]): number {
+  return lines.reduce(
+    (total, line) =>
+      total + Math.max(1, Math.ceil(line.length / CODE_CHARS_PER_LINE)),
+    0
+  )
+}
+
+function splitCodeLines(lines: string[]): string[][] {
+  const chunks: string[][] = []
+  let current: string[] = []
+  let currentVisualLines = 0
+
+  for (const line of lines) {
+    const lineVisualLines = Math.max(
+      1,
+      Math.ceil(line.length / CODE_CHARS_PER_LINE)
+    )
+    if (
+      current.length > 0 &&
+      currentVisualLines + lineVisualLines > MAX_CODE_VISUAL_LINES
+    ) {
+      chunks.push(current)
+      current = []
+      currentVisualLines = 0
+    }
+
+    current.push(line)
+    currentVisualLines += lineVisualLines
+  }
+
+  if (current.length > 0) chunks.push(current)
+  return chunks
+}
+
 hljs.registerAliases(['mongodb', 'mongo'], { languageName: 'javascript' })
 hljs.registerAliases(['sqlserver', 'mssql', 'tsql'], { languageName: 'sql' })
 
@@ -118,6 +156,48 @@ export async function buildExportHtml(
         }
       }
     }
+
+    // Split long code blocks into complete visual blocks for PDF pagination.
+    // Each chunk keeps its own border, radius, padding and margins, so the
+    // page boundary falls between two whole code blocks instead of through one.
+    const exportCodeBlocks = Array.from(
+      exportRoot.querySelectorAll('pre code.hljs')
+    )
+    for (const code of exportCodeBlocks) {
+      const pre = code.closest('pre')
+      if (!pre) continue
+
+      const rawText = code.textContent ?? ''
+      const lines = rawText.replace(/\n$/, '').split('\n')
+      const chunks = splitCodeLines(lines)
+      if (chunks.length <= 1) continue
+
+      const languageMatch = code.className.match(/language-([\w-]+)/)
+      const language = languageMatch?.[1] ?? 'plaintext'
+      const normalizedLanguage =
+        language && hljs.getLanguage(language) ? language : 'plaintext'
+      const fragment = doc.createDocumentFragment()
+
+      for (const chunkLines of chunks) {
+        const chunkText = chunkLines.join('\n')
+        if (!chunkText) continue
+
+        const chunkPre = doc.createElement('pre')
+        const chunkCode = doc.createElement('code')
+        if (pre.classList.contains('code-long-lines')) {
+          chunkPre.classList.add('code-long-lines')
+        }
+        chunkPre.classList.add('code-chunk')
+        chunkCode.className = `hljs language-${normalizedLanguage}`
+        chunkCode.innerHTML = hljs.highlight(chunkText, {
+          language: normalizedLanguage
+        }).value
+        chunkPre.appendChild(chunkCode)
+        fragment.appendChild(chunkPre)
+      }
+
+      pre.replaceWith(fragment)
+    }
   }
 
   const renderedBody = exportRoot?.innerHTML ?? body
@@ -133,7 +213,8 @@ export async function buildExportHtml(
       ${appCss}
       @page {
         size: A4;
-        margin: 0;
+        margin: 18mm 16mm;
+        background: var(--background);
       }
       html {
         height: auto;
@@ -143,18 +224,50 @@ export async function buildExportHtml(
       }
       body {
         margin: 0;
-        padding: 18mm;
+        padding: 0;
         background: transparent;
       }
       .markdown-preview {
         margin: 0;
         max-width: 100%;
         box-shadow: none;
-        padding: 8mm;
+        padding: 0;
       }
       .markdown-preview pre.code-long-lines code {
         white-space: pre-wrap;
         overflow-wrap: break-word;
+      }
+      .markdown-preview pre,
+      .markdown-preview table,
+      .markdown-preview th,
+      .markdown-preview td,
+      .markdown-preview blockquote,
+      .markdown-preview img,
+      .markdown-preview :not(pre) > code {
+        border-color: var(--border, #dad9d4);
+      }
+      html.dark .markdown-preview pre,
+      html.dark .markdown-preview table,
+      html.dark .markdown-preview th,
+      html.dark .markdown-preview td,
+      html.dark .markdown-preview blockquote,
+      html.dark .markdown-preview img,
+      html.dark .markdown-preview :not(pre) > code {
+        border-color: var(--border, #3e3e38);
+      }
+      .markdown-preview h1,
+      .markdown-preview h2,
+      .markdown-preview h3,
+      .markdown-preview h4,
+      .markdown-preview h5,
+      .markdown-preview h6 {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      .markdown-preview p,
+      .markdown-preview li {
+        orphans: 3;
+        widows: 3;
       }
       .markdown-preview pre,
       .markdown-preview table,
