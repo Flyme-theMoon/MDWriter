@@ -182,7 +182,7 @@ const toggleOrderedList = (view: EditorView): boolean =>
   toggleList(view, /^(\s*)\d+\.\s+/, (index) => `${index + 1}. `)
 
 const headingShortcuts = keymap.of(
-  [1, 2, 3, 4].flatMap((level) => [
+  [1, 2, 3, 4, 5, 6].flatMap((level) => [
     {
       key: `Mod-${level}`,
       run: (view: EditorView) => setHeading(view, level)

@@ -65,7 +65,7 @@ export function extractOutline(markdown: string): OutlineHeading[] {
 
   for (const token of lexer(markdown)) {
     if (token.type === 'heading') {
-      const rawText = token.text.trim() || `H${token.depth}`
+      const rawText = token.text.trim() || '空标题'
       const plainText = inlinePlainText(token.tokens).trim()
       headings.push({
         id: headingId(rawText, usedIds),

@@ -648,18 +648,6 @@ button.file-item.active {
   cursor: pointer;
 }
 
-.outline-level {
-  width: 20px;
-  flex-shrink: 0;
-  color: var(--muted-foreground);
-  font-family: var(--font-mono);
-  font-size: 10px;
-}
-
-.outline-row.active .outline-level {
-  color: var(--brand-600);
-}
-
 .outline-text {
   overflow: hidden;
   text-overflow: ellipsis;

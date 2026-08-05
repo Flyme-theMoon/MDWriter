@@ -54,7 +54,6 @@ function OutlineBranch({
           type="button"
           onClick={() => onSelect(node)}
         >
-          <span className="outline-level">H{node.level}</span>
           <span className="outline-text">{node.text}</span>
         </button>
       </div>

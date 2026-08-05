@@ -20,7 +20,7 @@ const shortcutGroups: Array<{ title: string; items: ShortcutItem[] }> = [
       { keys: 'Ctrl / Cmd + I', label: '斜体' },
       { keys: 'Ctrl / Cmd + Shift + `', label: '行内代码' },
       { keys: 'Ctrl / Cmd + Alt + X', label: '删除线' },
-      { keys: 'Ctrl / Cmd + 1-4', label: '设置一级到四级标题' }
+      { keys: 'Ctrl / Cmd + 1-6', label: '设置一级到六级标题' }
     ]
   },
   {

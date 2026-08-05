@@ -201,7 +201,11 @@ const headingShortcuts = $prose(() => {
     'Mod-3': setHeading(3),
     'Ctrl-3': setHeading(3),
     'Mod-4': setHeading(4),
-    'Ctrl-4': setHeading(4)
+    'Ctrl-4': setHeading(4),
+    'Mod-5': setHeading(5),
+    'Ctrl-5': setHeading(5),
+    'Mod-6': setHeading(6),
+    'Ctrl-6': setHeading(6)
   })
 })
 

@@ -29,7 +29,7 @@ const searchableTextExtensions = new Set([
 ])
 const maxGlobalSearchMatches = 500
 
-export async function listDirectory(directory: string, depth = 4): Promise<FileNode[]> {
+export async function listDirectory(directory: string, depth = 16): Promise<FileNode[]> {
   if (depth <= 0) return []
 
   let entries
