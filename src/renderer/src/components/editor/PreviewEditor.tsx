@@ -354,13 +354,17 @@ const codeBlockJsonExtensions = [
       preventDefault: true
     }
   ]),
-  CodeMirrorView.domEventHandlers({
-    paste: (_event, view) => {
-      window.setTimeout(() => {
-        formatJsonContent(view)
-      }, 0)
-      return false
+  CodeMirrorView.updateListener.of((update) => {
+    if (!update.docChanged) return
+    if (!update.transactions.some((tr) => tr.isUserEvent('input.paste'))) {
+      return
     }
+
+    // Format after CodeMirror has committed the pasted content. On Windows
+    // clipboard insertion can be async, so paste-event timing is unreliable.
+    window.requestAnimationFrame(() => {
+      formatJsonContent(update.view)
+    })
   })
 ]
 
