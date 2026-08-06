@@ -6,6 +6,7 @@ import appCss from '../styles/app.css?inline'
 import claudeTokensCss from '../styles/claude-tokens.css?inline'
 import katexCss from 'katex/dist/katex.min.css?inline'
 import { renderMermaidToElement } from './mermaid'
+import { fileUrlToPath } from './imagePaths'
 import 'katex/dist/katex.min.css'
 
 const MAX_CODE_VISUAL_LINES = 30
@@ -61,6 +62,24 @@ function headingId(text: string, used: Map<string, number>): string {
   const count = used.get(idBase) ?? 0
   used.set(idBase, count + 1)
   return count === 0 ? idBase : `${idBase}-${count + 1}`
+}
+
+const katexStyle = katexCss.replace(/@font-face\{[^}]*\}/g, '')
+
+// PDF output is loaded from a data: page, where file:// images are blocked.
+async function embedLocalImages(root: HTMLElement): Promise<void> {
+  const images = Array.from(root.querySelectorAll<HTMLImageElement>('img[src^="file://"]'))
+  if (images.length === 0 || !window.mdwriter) return
+
+  await Promise.all(
+    images.map(async (image) => {
+      const src = image.getAttribute('src')
+      if (!src) return
+
+      const dataUrl = await window.mdwriter?.readImageDataUrl(fileUrlToPath(src))
+      if (dataUrl) image.setAttribute('src', dataUrl)
+    })
+  )
 }
 
 // Single Markdown render entry shared by split preview and PDF export.
@@ -122,6 +141,7 @@ export async function buildExportHtml(
   dark = false
 ): Promise<string> {
   const body = renderMarkdown(markdown)
+  const { exportFontCss } = await import('./exportFonts')
   const parser = new DOMParser()
   const doc = parser.parseFromString(
     `<div id="mdwriter-export-root">${body}</div>`,
@@ -130,6 +150,8 @@ export async function buildExportHtml(
   const exportRoot = doc.getElementById('mdwriter-export-root')
 
   if (exportRoot) {
+    await embedLocalImages(exportRoot)
+
     const mermaidBlocks = Array.from(
       exportRoot.querySelectorAll('pre code.language-mermaid')
     )
@@ -208,8 +230,9 @@ export async function buildExportHtml(
     <meta charset="utf-8" />
     <title>MDWriter Export</title>
     <style>
+      ${exportFontCss}
       ${claudeTokensCss}
-      ${katexCss}
+      ${katexStyle}
       ${appCss}
       @page {
         size: A4;

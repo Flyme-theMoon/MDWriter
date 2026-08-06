@@ -36,6 +36,22 @@ export async function exportPdf(
       }
     })
     await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+    await printWindow.webContents.executeJavaScript(`
+      (async () => {
+        await document.fonts.ready
+        await Promise.all([
+          document.fonts.load('1.21em Lora', '0123456789').catch(() => []),
+          document.fonts.load('500 1.21em Newsreader', '0123456789').catch(() => []),
+          document.fonts.load('1.21em Geist Mono', '0123456789').catch(() => []),
+          document.fonts.load('1.21em KaTeX_Main', '0123456789{}').catch(() => []),
+          document.fonts.load('1.21em KaTeX_Size1', '{}').catch(() => []),
+          document.fonts.load('1.21em KaTeX_Size2', '{}').catch(() => []),
+          document.fonts.load('1.21em KaTeX_Size3', '{}').catch(() => []),
+          document.fonts.load('1.21em KaTeX_Size4', '{}').catch(() => [])
+        ])
+        return true
+      })()
+    `)
     const pdf = await printWindow.webContents.printToPDF({
       printBackground: true,
       pageSize: 'A4',
