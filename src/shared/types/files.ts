@@ -111,3 +111,23 @@ export interface ExportPdfResult {
   canceled: boolean
   path?: string
 }
+
+export interface GeneratePdfBufferPayload {
+  html: string
+}
+
+export interface GeneratePdfBufferResult {
+  pdf: Uint8Array
+}
+
+export interface SavePngPagePayload {
+  directory: string
+  baseName: string
+  pageNumber: number
+  totalPages: number
+  buffer: ArrayBuffer
+}
+
+export interface SavePngPageResult {
+  path: string
+}

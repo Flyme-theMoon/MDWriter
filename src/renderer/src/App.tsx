@@ -11,13 +11,16 @@ import {
 import {
   Code2,
   Columns2,
+  ChevronDown,
   Eye,
   FileDown,
+  FileImage,
   FilePlus2,
   FolderOpen,
   FolderPlus,
   Keyboard,
   ListTree,
+  Loader2,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
@@ -201,6 +204,8 @@ export default function App() {
   const [hydrated, setHydrated] = useState(false)
   const [pendingAppClose, setPendingAppClose] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(220)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [resizingSidebar, setResizingSidebar] = useState(false)
@@ -510,6 +515,22 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [contextMenu])
+
+  useEffect(() => {
+    if (!exportMenuOpen) return
+
+    const close = (): void => setExportMenuOpen(false)
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') close()
+    }
+
+    window.addEventListener('pointerdown', close)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('pointerdown', close)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [exportMenuOpen])
 
   const updateActiveContent = (content: string): void => {
     if (!activeTab) return
@@ -1065,6 +1086,29 @@ export default function App() {
     return null
   }
 
+  const getActiveTabExportSource = async (): Promise<{
+    path: string
+    content: string
+  } | null> => {
+    if (!window.mdwriter || !activeTab) return null
+
+    if (!activeTab.path || activeTab.dirty) {
+      const savedPath = await saveTab(activeTab.id)
+      if (!savedPath) return null
+
+      const file = await window.mdwriter.readFile(savedPath)
+      return {
+        path: savedPath,
+        content: relativizeImagePaths(file.content, savedPath)
+      }
+    }
+
+    return {
+      path: activeTab.path,
+      content: activeTab.content
+    }
+  }
+
   const saveActiveTab = async (): Promise<void> => {
     if (!activeTab) return
     await saveTab(activeTab.id)
@@ -1206,17 +1250,80 @@ export default function App() {
   }
 
   const exportPdf = async (): Promise<void> => {
-    if (!window.mdwriter || !activeTab) return
+    if (!window.mdwriter || !activeTab || exporting) return
 
-    const defaultName = activeTab.title.replace(/\.md$/i, '') + '.pdf'
-    const { buildExportHtml } = await import('./markdown/renderer')
-    await window.mdwriter.exportPdf({
-      html: await buildExportHtml(
-        resolveImagePaths(activeTab.content, activeTab.path),
-        dark
-      ),
-      defaultName
-    })
+    setExportMenuOpen(false)
+    setExporting(true)
+
+    try {
+      const source = await getActiveTabExportSource()
+      if (!source) return
+
+      const baseName =
+        source.path.split(/[\\/]/).pop()?.replace(/\.md$/i, '') || 'export'
+      const { buildExportHtml } = await import('./markdown/renderer')
+      await window.mdwriter.exportPdf({
+        html: await buildExportHtml(
+          resolveImagePaths(source.content, source.path),
+          dark
+        ),
+        defaultName: `${baseName}.pdf`
+      })
+    } catch (error) {
+      console.error('[exportPdf]', error)
+      window.alert(
+        `导出 PDF 失败：${error instanceof Error ? error.message : String(error)}`
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const exportPng = async (): Promise<void> => {
+    const mdwriter = window.mdwriter
+    if (!mdwriter || !activeTab || exporting) return
+
+    setExportMenuOpen(false)
+    setExporting(true)
+    const writtenPaths: string[] = []
+
+    try {
+      const source = await getActiveTabExportSource()
+      if (!source) return
+
+      const baseName =
+        source.path.split(/[\\/]/).pop()?.replace(/\.md$/i, '') || 'export'
+      const directory = `${parentDirectory(source.path).replace(/[\\/]+$/, '')}/${baseName}`
+      const { buildExportHtml } = await import('./markdown/renderer')
+      const { renderPdfToPngPages } = await import('./markdown/exportPng')
+      const pdfResult = await mdwriter.generatePdfBuffer({
+        html: await buildExportHtml(
+          resolveImagePaths(source.content, source.path),
+          dark
+        )
+      })
+
+      await renderPdfToPngPages(pdfResult.pdf, async (pageNumber, totalPages, png) => {
+        const result = await mdwriter.savePngPage({
+          directory,
+          baseName,
+          pageNumber,
+          totalPages,
+          buffer: png
+        })
+        writtenPaths.push(result.path)
+      })
+    } catch (error) {
+      if (writtenPaths.length > 0) {
+        await mdwriter.removeExportFiles(writtenPaths).catch(() => undefined)
+      }
+      console.error('[exportPng]', error)
+      window.alert(
+        `导出 PNG 失败：${error instanceof Error ? error.message : String(error)}`
+      )
+    } finally {
+      setExporting(false)
+    }
   }
 
   const handleOutlineSelect = (heading: OutlineHeading): void => {
@@ -1467,15 +1574,49 @@ export default function App() {
       >
         <Save size={16} />
       </button>
-      <button
-        className="icon-button"
-        type="button"
-        data-tooltip="导出 PDF"
-        aria-label="导出 PDF"
-        onClick={exportPdf}
+      <div
+        className="export-menu"
+        onPointerDown={(event) => event.stopPropagation()}
       >
-        <FileDown size={16} />
-      </button>
+        <button
+          className="icon-button export-menu-trigger"
+          type="button"
+          data-tooltip={exporting ? '导出中...' : '导出 PDF / PNG'}
+          aria-label="导出"
+          aria-haspopup="menu"
+          aria-expanded={exportMenuOpen}
+          aria-busy={exporting}
+          disabled={exporting || !activeTab}
+          onClick={() => setExportMenuOpen((value) => !value)}
+        >
+          {exporting ? (
+            <Loader2 size={16} className="export-spinner" />
+          ) : (
+            <FileDown size={16} />
+          )}
+          <ChevronDown size={12} />
+        </button>
+        {exportMenuOpen && (
+          <div className="export-menu-popover" role="menu" aria-label="导出格式">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => void exportPdf()}
+            >
+              <FileDown size={14} />
+              <span>导出 PDF</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => void exportPng()}
+            >
+              <FileImage size={14} />
+              <span>导出 PNG</span>
+            </button>
+          </div>
+        )}
+      </div>
       <button
         className="icon-button"
         type="button"

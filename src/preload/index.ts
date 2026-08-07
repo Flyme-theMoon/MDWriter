@@ -12,12 +12,16 @@ import type {
   DeleteFilePayload,
   DeleteFileResult,
   ExportPdfPayload,
+  GeneratePdfBufferPayload,
+  GeneratePdfBufferResult,
   GlobalSearchMatch,
   OpenPathResult,
   OpenDirectoryResult,
   ReadFileResult,
   RenameEntryPayload,
   RenameEntryResult,
+  SavePngPagePayload,
+  SavePngPageResult,
   SearchDirectoryPayload,
   SaveFilePayload,
   SaveFileResult
@@ -111,6 +115,12 @@ const api = {
   },
   exportPdf: (payload: ExportPdfPayload): Promise<{ canceled: boolean; path?: string }> =>
     ipcRenderer.invoke('export:pdf', payload),
+  generatePdfBuffer: (payload: GeneratePdfBufferPayload): Promise<GeneratePdfBufferResult> =>
+    ipcRenderer.invoke('export:pdf-buffer', payload),
+  savePngPage: (payload: SavePngPagePayload): Promise<SavePngPageResult> =>
+    ipcRenderer.invoke('png:save-page', payload),
+  removeExportFiles: (paths: string[]): Promise<void> =>
+    ipcRenderer.invoke('png:remove-files', paths),
   minimizeWindow: (): void => {
     ipcRenderer.send('window:minimize')
   },

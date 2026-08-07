@@ -12,12 +12,16 @@ import type {
   DeleteFilePayload,
   DeleteFileResult,
   ExportPdfPayload,
+  GeneratePdfBufferPayload,
+  GeneratePdfBufferResult,
   GlobalSearchMatch,
   OpenPathResult,
   OpenDirectoryResult,
   ReadFileResult,
   RenameEntryPayload,
   RenameEntryResult,
+  SavePngPagePayload,
+  SavePngPageResult,
   SearchDirectoryPayload,
   SaveFilePayload,
   SaveFileResult
@@ -66,6 +70,9 @@ declare global {
       confirmClose: () => void
       cancelClose: () => void
       exportPdf: (payload: ExportPdfPayload) => Promise<{ canceled: boolean; path?: string }>
+      generatePdfBuffer: (payload: GeneratePdfBufferPayload) => Promise<GeneratePdfBufferResult>
+      savePngPage: (payload: SavePngPagePayload) => Promise<SavePngPageResult>
+      removeExportFiles: (paths: string[]) => Promise<void>
       minimizeWindow: () => void
       maximizeWindow: () => void
       closeWindow: () => void

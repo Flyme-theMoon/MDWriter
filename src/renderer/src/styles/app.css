@@ -262,6 +262,65 @@ button {
   opacity: 1;
 }
 
+.export-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.export-menu-trigger {
+  gap: 2px;
+  width: 40px;
+}
+
+.export-menu-trigger[aria-expanded='true']::after {
+  opacity: 0;
+}
+
+.export-menu-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  min-width: 152px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--popover);
+  box-shadow: var(--shadow-md);
+}
+
+.export-menu-popover button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 4px);
+  background: transparent;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.export-menu-popover button:hover {
+  background: var(--muted);
+  color: var(--card-foreground);
+}
+
+.export-spinner {
+  animation: export-spin 0.9s linear infinite;
+}
+
+@keyframes export-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;

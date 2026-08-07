@@ -2,31 +2,7 @@ import { BrowserWindow, dialog } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import type { ExportPdfResult } from '../../shared/types/files'
 
-export async function exportPdf(
-  html: string,
-  defaultName: string,
-  targetPath?: string
-): Promise<ExportPdfResult> {
-  const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  let filePath = targetPath
-
-  if (!filePath) {
-    const options = {
-      title: '导出 PDF',
-      defaultPath: defaultName,
-      filters: [{ name: 'PDF', extensions: ['pdf'] }]
-    }
-    const result = owner
-      ? await dialog.showSaveDialog(owner, options)
-      : await dialog.showSaveDialog(options)
-
-    if (result.canceled || !result.filePath) {
-      return { canceled: true }
-    }
-
-    filePath = result.filePath
-  }
-
+export async function generatePdfBuffer(html: string): Promise<Buffer> {
   let printWindow: BrowserWindow | null = null
   try {
     printWindow = new BrowserWindow({
@@ -52,18 +28,46 @@ export async function exportPdf(
         return true
       })()
     `)
-    const pdf = await printWindow.webContents.printToPDF({
+    return await printWindow.webContents.printToPDF({
       printBackground: true,
       pageSize: 'A4',
       preferCSSPageSize: true,
       generateDocumentOutline: true,
       generateTaggedPDF: true
     })
-    await writeFile(filePath, pdf)
-    return { canceled: false, path: filePath }
   } finally {
     if (printWindow && !printWindow.isDestroyed()) {
       printWindow.destroy()
     }
   }
+}
+
+export async function exportPdf(
+  html: string,
+  defaultName: string,
+  targetPath?: string
+): Promise<ExportPdfResult> {
+  const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  let filePath = targetPath
+
+  if (!filePath) {
+    const options = {
+      title: '导出 PDF',
+      defaultPath: defaultName,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    }
+    const result = owner
+      ? await dialog.showSaveDialog(owner, options)
+      : await dialog.showSaveDialog(options)
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true }
+    }
+
+    filePath = result.filePath
+  }
+
+  const pdf = await generatePdfBuffer(html)
+  await writeFile(filePath, pdf)
+  return { canceled: false, path: filePath }
 }

@@ -11,7 +11,7 @@ function encodePath(filePath: string): string {
 
 function decodeSafely(value: string): string {
   try {
-    return decodeURI(value)
+    return decodeURIComponent(value)
   } catch {
     return value
   }
@@ -21,6 +21,11 @@ function unwrapMarkdownPath(value: string): string {
   return value.startsWith('<') && value.endsWith('>')
     ? value.slice(1, -1)
     : value
+}
+
+function isAbsoluteLocalPath(value: string): boolean {
+  const path = unwrapMarkdownPath(value)
+  return path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path)
 }
 
 const markdownImageUrlPattern =
@@ -66,7 +71,12 @@ export function toFileUrl(filePath: string): string {
 export function fileUrlToPath(fileUrl: string): string {
   // Reverse file:// URLs, including Windows drive paths, back to local paths.
   const path = fileUrl.replace(/^file:\/\//i, '')
-  const decoded = decodeURI(path)
+  let decoded = path
+  try {
+    decoded = decodeURIComponent(path)
+  } catch {
+    // Keep malformed file URLs as-is so image fallback can fail gracefully.
+  }
   return /^\/[A-Za-z]:\//.test(decoded) ? decoded.slice(1) : decoded
 }
 
@@ -85,6 +95,10 @@ export function resolveImagePaths(content: string, filePath?: string | null): st
         rawPath.startsWith('data:')
       ) {
         return match
+      }
+      if (isAbsoluteLocalPath(rawPath)) {
+        const path = decodeSafely(unwrapMarkdownPath(rawPath))
+        return `![${alt}](${toFileUrl(path)}${titleGroup ?? ''})`
       }
       const path = unwrapMarkdownPath(rawPath)
       return `![${alt}](${toFileUrl(`${fileDir}/${decodeSafely(path)}`)}${titleGroup ?? ''})`

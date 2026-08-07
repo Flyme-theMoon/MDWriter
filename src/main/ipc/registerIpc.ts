@@ -10,7 +10,9 @@ import type {
   CopyFilePayload,
   DeleteFilePayload,
   ExportPdfPayload,
+  GeneratePdfBufferPayload,
   RenameEntryPayload,
+  SavePngPagePayload,
   SaveFilePayload,
   SearchDirectoryPayload
 } from '../../shared/types/files'
@@ -26,7 +28,8 @@ import {
   saveTextFile,
   searchDirectory
 } from '../services/fileService'
-import { exportPdf } from '../services/pdfService'
+import { exportPdf, generatePdfBuffer } from '../services/pdfService'
+import { removeExportFiles, savePngPage } from '../services/pngExportService'
 import { loadAppState, saveAppState } from '../services/appStateService'
 import { openPdfPreview } from '../services/pdfPreviewService'
 import { setWatchedWorkspaces } from '../services/workspaceWatcher'
@@ -163,9 +166,17 @@ export function registerIpcHandlers(): void {
               ? 'image/gif'
               : extension === '.webp'
                 ? 'image/webp'
-                : extension === '.svg'
-                  ? 'image/svg+xml'
-                  : 'image/png'
+                : extension === '.avif'
+                  ? 'image/avif'
+                  : extension === '.bmp'
+                    ? 'image/bmp'
+                    : extension === '.ico'
+                      ? 'image/x-icon'
+                      : extension === '.tif' || extension === '.tiff'
+                        ? 'image/tiff'
+                        : extension === '.svg'
+                          ? 'image/svg+xml'
+                          : 'image/png'
         return `data:${mime};base64,${buffer.toString('base64')}`
       } catch {
         return null
@@ -308,6 +319,23 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('export:pdf', async (_event, payload: ExportPdfPayload) =>
     exportPdf(payload.html, payload.defaultName, payload.targetPath)
   )
+
+  ipcMain.handle(
+    'export:pdf-buffer',
+    async (_event, payload: GeneratePdfBufferPayload) => ({
+      pdf: await generatePdfBuffer(payload.html)
+    })
+  )
+
+  ipcMain.handle(
+    'png:save-page',
+    async (_event, payload: SavePngPagePayload) =>
+      savePngPage(payload)
+  )
+
+  ipcMain.handle('png:remove-files', async (_event, paths: string[]) => {
+    await removeExportFiles(paths)
+  })
 
   ipcMain.on('app:close-confirmed', () => {
     closeAllowed = true
