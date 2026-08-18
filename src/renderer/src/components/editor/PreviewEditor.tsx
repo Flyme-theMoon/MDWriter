@@ -114,6 +114,43 @@ export interface PreviewEditorHandle {
   scrollToText: (text: string) => void
 }
 
+const exitInlineCodeAtEnd = $prose(() => {
+  const key = new PluginKey('MDWRITER_EXIT_INLINE_CODE')
+  return new Plugin({
+    key,
+    appendTransaction: (trs, _oldState, newState) => {
+      if (!trs.some((tr) => tr.selectionSet || tr.storedMarksSet)) return
+      const { $from } = newState.selection
+      if (!$from.parent.isTextblock) return
+
+      const marks = newState.storedMarks || $from.marks()
+      const hasInlineCode = marks.some((m) => m.type.name === 'inlineCode')
+      if (!hasInlineCode) return
+
+      // Check if cursor is at the end of the inline code mark range AND
+      // at the end of the text content (nothing after the mark)
+      const node = $from.nodeAfter || $from.nodeBefore
+      if (!node || !node.isText) return
+
+      const inlineCodeType = newState.schema.marks.inlineCode
+      const markRange = $from.marks().find((m) => m.type === inlineCodeType)
+      if (!markRange) return
+
+      // If the text node after cursor doesn't have inlineCode, clear stored marks
+      const afterHasMark = $from.nodeAfter?.marks.some(
+        (m) => m.type === inlineCodeType
+      )
+      const atEnd = $from.pos === $from.end()
+
+      if (!afterHasMark && (atEnd || !$from.nodeAfter)) {
+        const tr = newState.tr
+        tr.setStoredMarks([])
+        return tr
+      }
+    }
+  })
+})
+
 const exitCodeBlockAtEnd = $prose(() =>
   keymap({
     Enter: (state, dispatch) => {
@@ -1032,6 +1069,7 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
         .use(formattingShortcuts)
         .use(uploadConfig)
         .use(imageUploadPlugin)
+        .use(exitInlineCodeAtEnd)
         .use(exitCodeBlockAtEnd)
         .use(headingShortcuts)
         .use(selectLineShortcut)

@@ -49,6 +49,7 @@ function splitCodeLines(lines: string[]): string[][] {
 
 hljs.registerAliases(['mongodb', 'mongo'], { languageName: 'javascript' })
 hljs.registerAliases(['sqlserver', 'mssql', 'tsql'], { languageName: 'sql' })
+hljs.registerAliases(['mysql', 'mariadb', 'sqlite'], { languageName: 'sql' })
 
 function headingId(text: string, used: Map<string, number>): string {
   const base =
