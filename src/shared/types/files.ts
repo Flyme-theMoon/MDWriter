@@ -101,6 +101,10 @@ export interface OpenPathResult {
   error: string | null
 }
 
+export interface OpenExternalResult {
+  error: string | null
+}
+
 export interface ExportPdfPayload {
   html: string
   defaultName: string

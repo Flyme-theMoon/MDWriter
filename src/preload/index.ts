@@ -16,6 +16,7 @@ import type {
   GeneratePdfBufferResult,
   GlobalSearchMatch,
   OpenPathResult,
+  OpenExternalResult,
   OpenDirectoryResult,
   ReadFileResult,
   RenameEntryPayload,
@@ -81,6 +82,8 @@ const api = {
     ipcRenderer.invoke('file:delete', payload),
   openPath: (path: string): Promise<OpenPathResult> =>
     ipcRenderer.invoke('file:open', path),
+  openExternal: (url: string): Promise<OpenExternalResult> =>
+    ipcRenderer.invoke('shell:open-external', url),
   loadAppState: (): Promise<AppState | null> =>
     ipcRenderer.invoke('app-state:load'),
   saveAppState: (state: AppState): Promise<void> =>

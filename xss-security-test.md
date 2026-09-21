@@ -68,3 +68,11 @@ flowchart LR
 | a | b |
 
 > 引用块
+
+## 11. 链接点击
+
+[外部链接](https://example.com)、[邮件链接](mailto:someone@example.com) 应交给系统默认程序打开，应用窗口本身不跳转、不刷新。
+
+[javascript 链接](javascript:alert('link-click'))、[自定义协议](obsidian://open?vault=x) 应静默失效，无弹窗也不启动外部程序。
+
+交互方式：「分栏」右侧预览单击即打开；「预览编辑」为可编辑文档，需 Cmd/Ctrl + 单击才打开，普通单击只放置光标。

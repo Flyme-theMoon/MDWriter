@@ -29,13 +29,24 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  const devUrl = process.env['ELECTRON_RENDERER_URL']
+
+  // Markdown links open through shell.openExternal, so the app window itself
+  // must never navigate to another document. Only same-document changes
+  // (anchor jumps, dev reloads) are allowed through.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const stripHash = (value: string): string => value.split('#')[0]
+    if (stripHash(url) !== stripHash(mainWindow.webContents.getURL())) {
+      event.preventDefault()
+    }
+  })
+
   installCloseGuard(mainWindow)
 
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.send('window:maximize-changed', mainWindow.isMaximized())
   })
 
-  const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (devUrl) {
     void mainWindow.loadURL(devUrl)
   } else {

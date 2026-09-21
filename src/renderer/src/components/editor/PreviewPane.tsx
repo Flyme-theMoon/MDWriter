@@ -7,6 +7,7 @@ import {
   type MouseEvent as ReactMouseEvent
 } from 'react'
 import { renderMarkdown } from '../../markdown/renderer'
+import { openMarkdownLink } from '../../markdown/links'
 import {
   decodeMermaidSource,
   renderMermaidToElement,
@@ -141,13 +142,19 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, PreviewPaneProps>(
     preview.appendChild(pre)
   }
 
+  // The preview is read-only, so a plain click opens the link.
+  const handleClick = (event: ReactMouseEvent<HTMLElement>): void => {
+    if (openMarkdownLink(event.nativeEvent)) return
+    handleMermaidClick(event)
+  }
+
   return (
     <article
       ref={containerRef}
       className="markdown-preview"
       dangerouslySetInnerHTML={{ __html: html }}
       onDoubleClick={handleDoubleClick}
-      onClick={handleMermaidClick}
+      onClick={handleClick}
     />
   )
 }

@@ -16,6 +16,7 @@ import type {
   GeneratePdfBufferResult,
   GlobalSearchMatch,
   OpenPathResult,
+  OpenExternalResult,
   OpenDirectoryResult,
   ReadFileResult,
   RenameEntryPayload,
@@ -60,6 +61,7 @@ declare global {
       renameEntry: (payload: RenameEntryPayload) => Promise<RenameEntryResult>
       deleteFile: (payload: DeleteFilePayload) => Promise<DeleteFileResult>
       openPath: (path: string) => Promise<OpenPathResult>
+      openExternal: (url: string) => Promise<OpenExternalResult>
       loadAppState: () => Promise<AppState | null>
       saveAppState: (state: AppState) => Promise<void>
       setWatchedWorkspaces: (paths: string[]) => void

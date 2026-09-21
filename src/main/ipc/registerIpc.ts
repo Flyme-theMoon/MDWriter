@@ -11,6 +11,7 @@ import type {
   DeleteFilePayload,
   ExportPdfPayload,
   GeneratePdfBufferPayload,
+  OpenExternalResult,
   RenameEntryPayload,
   SavePngPagePayload,
   SaveFilePayload,
@@ -38,6 +39,11 @@ let closeAllowed = false
 let closePromptActive = false
 let closePromptWindow: BrowserWindow | null = null
 let mainWindow: BrowserWindow | null = null
+
+// Only these protocols may leave the app. Everything else (notably file:// and
+// custom URL schemes) is rejected so a crafted Markdown link cannot launch an
+// arbitrary local program through the system handler.
+const EXTERNAL_LINK_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:'])
 
 function looksLikeImagesDirectory(directory: string): boolean {
   return basename(directory).toLowerCase() === 'images'
@@ -315,6 +321,35 @@ export function registerIpcHandlers(): void {
     const error = await shell.openPath(filePath)
     return { error: error || null }
   })
+
+  // Open a Markdown link in the system browser/mail client instead of letting
+  // the renderer window navigate away from the app.
+  ipcMain.handle(
+    'shell:open-external',
+    async (_event, url: unknown): Promise<OpenExternalResult> => {
+      if (typeof url !== 'string' || url.trim() === '') {
+        return { error: 'invalid-url' }
+      }
+
+      let parsed: URL
+      try {
+        parsed = new URL(url)
+      } catch {
+        return { error: 'invalid-url' }
+      }
+
+      if (!EXTERNAL_LINK_PROTOCOLS.has(parsed.protocol)) {
+        return { error: `unsupported-protocol:${parsed.protocol}` }
+      }
+
+      try {
+        await shell.openExternal(parsed.toString())
+        return { error: null }
+      } catch (error) {
+        return { error: error instanceof Error ? error.message : String(error) }
+      }
+    }
+  )
 
   ipcMain.handle('export:pdf', async (_event, payload: ExportPdfPayload) =>
     exportPdf(payload.html, payload.defaultName, payload.targetPath)

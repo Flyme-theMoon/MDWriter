@@ -95,6 +95,7 @@ import {
   toFileUrl
 } from '../../markdown/imagePaths'
 import { rerenderMermaidElement } from '../../markdown/mermaid'
+import { openMarkdownLink } from '../../markdown/links'
 import { findFuzzyRanges } from '../../search/fuzzy'
 import { vscodeHighlightStyle } from '../../editor/highlightStyle'
 import { math } from '../../editor/mathPlugin'
@@ -745,6 +746,20 @@ const MilkdownInstance = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
 
     container.addEventListener('error', handleImageError, true)
     return () => container.removeEventListener('error', handleImageError, true)
+  }, [])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    // The document stays editable, so links open with Cmd/Ctrl+click while a
+    // plain click keeps placing the caret inside the link text.
+    const handleClick = (event: MouseEvent): void => {
+      openMarkdownLink(event, { requireModifier: true })
+    }
+
+    container.addEventListener('click', handleClick)
+    return () => container.removeEventListener('click', handleClick)
   }, [])
 
   useEffect(

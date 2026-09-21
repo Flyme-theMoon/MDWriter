@@ -1265,6 +1265,22 @@ html.dark .source-editor {
   margin: 0 0 1rem;
 }
 
+.markdown-preview a,
+.milkdown a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  text-underline-offset: 3px;
+  transition:
+    color 0.14s ease,
+    text-decoration-color 0.14s ease;
+}
+
+.markdown-preview a:hover,
+.milkdown a:hover {
+  text-decoration-color: var(--primary);
+}
+
 .markdown-preview blockquote,
 .milkdown blockquote {
   margin: 1.25rem 0;
